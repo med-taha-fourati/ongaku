@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129718713102",
+    "project_id": "ongaku-2b651",
+    "storage_bucket": "ongaku-2b651.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129718713102:android:6bb958158ce80ba810755f",
+        "android_client_info": {
+          "package_name": "com.taha.ongaku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA59V4Twit5gfA1XJwuvNGKmi-_RjInSwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
