@@ -36,7 +36,6 @@ class PlayerBottomSheet extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ==== Header ====
           Row(
             children: [
               Container(

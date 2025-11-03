@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:ongaku/providers/auth_provider.dart';
+import 'package:ongaku/providers/radio_provider.dart';
 import '../models/song_model.dart';
 import '../models/radio_station.dart';
 import '../repositories/analytics_repository.dart';
@@ -118,24 +119,36 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
   }
 
-  Future<void> playRadio(RadioStation station) async {
+  Future<void> playRadio(RadioStation station, {bool fromRecentlyPlayed = false}) async {
     try {
-      _logSession(completed: false);
-
+      _logSession(completed: true);
+      
+      // Stop any current playback
+      await state.player.stop();
+      
+      // Set the new radio station
       state = state.copyWith(
-        currentSong: null,
         currentStation: station,
-        playlist: [],
+        currentSong: null,
+        isPlaying: true,
         sessionStart: DateTime.now(),
       );
-
+      
+      // Add to recently played if not coming from recently played list
+      if (!fromRecentlyPlayed) {
+        final ref = ProviderContainer();
+        final notifier = ref.read(recentlyPlayedRadiosProvider.notifier);
+        notifier.addToRecentlyPlayed(station);
+      }
+      
+      // Set audio source
       await state.player.setAudioSource(
         AudioSource.uri(
           Uri.parse(station.streamUrl),
           tag: MediaItem(
             id: station.id,
             title: station.name,
-            artist: station.genre,
+            artist: station.country,
             artUri: station.imageUrl != null ? Uri.parse(station.imageUrl!) : null,
           ),
         ),
@@ -143,7 +156,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       await state.player.play();
     } catch (e) {
-      throw Exception('Failed to play radio: $e');
+      print('Error playing radio: $e');
+      rethrow;
     }
   }
 
