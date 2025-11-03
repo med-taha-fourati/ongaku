@@ -72,28 +72,47 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
 
     try {
       final repository = ref.read(songRepositoryProvider);
-      final user = ref.read(currentUserProvider).value!;
+      final user = ref.read(currentUserProvider).value;
+      if (user == null) {
+        throw Exception("user is null");
+      }
 
+      // Validate required fields
+      final title = _titleController.text.trim();
+      final artist = _artistController.text.trim();
+      final genre = _genreController.text.trim();
+      
+      if (title.isEmpty || artist.isEmpty || genre.isEmpty) {
+        throw Exception('Please fill in all required fields');
+      }
+
+      // Upload audio file
       final audioUrl = await repository.uploadSong(_audioFile!, user.uid);
-      final coverUrl = _coverFile != null
-          ? await repository.uploadCover(_coverFile!, user.uid)
-          : null;
+      if (audioUrl.isEmpty) {
+        throw Exception('Failed to upload audio file');
+      }
+      
+      // Upload cover image if available
+      String? coverUrl;
+      if (_coverFile != null) {
+        coverUrl = await repository.uploadCover(_coverFile!, user.uid);
+      }
 
+      // Create song model
       final song = SongModel(
         id: '',  // Will be set by Firestore
-        title: _titleController.text,
-        artist: _artistController.text,
-        genre: _genreController.text,
+        title: title,
+        artist: artist,
+        genre: genre,
         audioUrl: audioUrl,
         coverUrl: coverUrl,
         uploadedBy: user.uid,
         uploadedAt: DateTime.now(),
         status: SongStatus.pending,
-        playCount: 0,
-        likeCount: 0,
-        album: '',  // Optional album field
         duration: 0,  // Will be updated after upload
       );
+      
+      print('Creating song with data: ${song.toJson()}');
 
       await repository.createSong(song);
 
@@ -106,6 +125,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         _resetForm();
       }
     } catch (e) {
+      print(e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

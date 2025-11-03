@@ -11,16 +11,9 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) async {
-      if (user != null) {
-        final authRepository = ref.watch(authRepositoryProvider);
-        return await authRepository.getUserData(user.uid);
-      }
-      return null;
-    },
-    loading: () => null,
-    error: (_, __) => null,
-  );
+  final user = await ref.watch(authStateProvider.future);
+  if (user == null) return null;
+
+  final authRepository = ref.watch(authRepositoryProvider);
+  return await authRepository.getUserData(user.uid);
 });

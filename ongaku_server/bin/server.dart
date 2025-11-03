@@ -11,7 +11,7 @@ import 'package:shelf_static/shelf_static.dart';
 import 'package:mime/mime.dart';
 
 // Configuration
-const _hostname = '0.0.0.0';
+const _hostname = '192.168.1.22';
 const _port = 8080;
 final _uploadsDir = Directory('uploads');
 

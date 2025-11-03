@@ -19,19 +19,28 @@ class SongModel {
 
   SongModel({
     required this.id,
-    required this.title,
-    required this.artist,
-    required this.album,
-    required this.genre,
-    required this.audioUrl,
+    required String title,
+    required String artist,
+    String? album,
+    required String genre,
+    required String audioUrl,
     this.coverUrl,
-    required this.duration,
-    required this.uploadedBy,
-    required this.uploadedAt,
+    required int duration,
+    required String uploadedBy,
+    required DateTime uploadedAt,
     this.status = SongStatus.pending,
-    this.playCount = 0,
-    this.likeCount = 0,
-  });
+    int? playCount,
+    int? likeCount,
+  }) : title = title.trim(),
+       artist = artist.trim(),
+       album = album?.trim() ?? '',
+       genre = genre.trim(),
+       audioUrl = audioUrl.trim(),
+       duration = duration,
+       uploadedBy = uploadedBy,
+       uploadedAt = uploadedAt,
+       playCount = playCount ?? 0,
+       likeCount = likeCount ?? 0;
 
   factory SongModel.fromJson(String id, Map<String, dynamic> json) {
     return SongModel(
@@ -55,13 +64,12 @@ class SongModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = <String, dynamic>{
       'title': title,
       'artist': artist,
       'album': album,
       'genre': genre,
       'audioUrl': audioUrl,
-      'coverUrl': coverUrl,
       'duration': duration,
       'uploadedBy': uploadedBy,
       'uploadedAt': uploadedAt.toIso8601String(),
@@ -69,5 +77,12 @@ class SongModel {
       'playCount': playCount,
       'likeCount': likeCount,
     };
+    
+    // Only include coverUrl if it's not null
+    if (coverUrl != null && coverUrl!.isNotEmpty) {
+      map['coverUrl'] = coverUrl;
+    }
+    
+    return map;
   }
 }

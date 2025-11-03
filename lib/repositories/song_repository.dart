@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 class SongRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   // Update this to your server's address and port
-  static const String _serverBaseUrl = 'http://localhost:8080';
+  static const String _serverBaseUrl = 'http://192.168.1.22:8080';
   
   // Local cache directory for storing downloaded files
   Future<Directory> get _localDir async {
@@ -137,41 +137,69 @@ class SongRepository {
 
   Future<String> uploadSong(File file, String userId) async {
     try {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
+      if (!await file.exists()) {
+        throw Exception('The selected audio file does not exist');
+      }
+      
+      final filePath = file.path;
+      if (filePath.isEmpty) {
+        throw Exception('Invalid file path');
+      }
+      
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}';
       final url = Uri.parse('$_serverBaseUrl/upload/song');
       
       var request = http.MultipartRequest('POST', url);
       request.fields['userId'] = userId;
-      request.files.add(await http.MultipartFile.fromPath('file', file.path, filename: fileName));
+      
+      final fileStream = await http.MultipartFile.fromPath('file', filePath, filename: fileName);
+      request.files.add(fileStream);
       
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
       
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(responseBody);
+        if (jsonResponse['url'] == null) {
+          throw Exception('Invalid server response: missing URL');
+        }
         return '$_serverBaseUrl${jsonResponse['url']}';
       } else {
-        throw Exception('Failed to upload song: ${response.reasonPhrase}');
+        throw Exception('Failed to upload song: ${response.reasonPhrase} (${response.statusCode})');
       }
     } catch (e) {
-      throw Exception('Failed to upload song: $e');
+      throw Exception('Failed to upload song: ${e.toString()}');
     }
   }
 
   Future<String?> uploadCover(File file, String userId) async {
     try {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
+      if (!await file.exists()) {
+        return null;
+      }
+      
+      final filePath = file.path;
+      if (filePath.isEmpty) {
+        return null;
+      }
+      
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}';
       final url = Uri.parse('$_serverBaseUrl/upload/cover');
       
       var request = http.MultipartRequest('POST', url);
       request.fields['userId'] = userId;
-      request.files.add(await http.MultipartFile.fromPath('file', file.path, filename: fileName));
+      
+      final fileStream = await http.MultipartFile.fromPath('file', filePath, filename: fileName);
+      request.files.add(fileStream);
       
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
       
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(responseBody);
+        if (jsonResponse['url'] == null) {
+          return null;
+        }
         return '$_serverBaseUrl${jsonResponse['url']}';
       } else {
         return null;
@@ -210,6 +238,7 @@ class SongRepository {
   }
 
   Future<void> createSong(SongModel song) async {
+    print("im here");
     try {
       await _firestore.collection('songs').add(song.toJson());
     } catch (e) {
