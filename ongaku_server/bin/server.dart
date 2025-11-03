@@ -19,8 +19,7 @@ Future<void> _ensureUploadsDirectory() async {
   if (!await _uploadsDir.exists()) {
     await _uploadsDir.create(recursive: true);
   }
-  
-  // Create subdirectories if they don't exist
+
   final songsDir = Directory('${_uploadsDir.path}/songs');
   final coversDir = Directory('${_uploadsDir.path}/covers');
   
@@ -29,20 +28,16 @@ Future<void> _ensureUploadsDirectory() async {
 }
 
 void main(List<String> args) async {
-  // Ensure uploads directory and subdirectories exist
   await _ensureUploadsDirectory();
 
-  // Create server
   final app = Router();
 
-  // Enable CORS
   final corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Origin, Content-Type',
   };
 
-  // Handle CORS preflight requests
   app.options('/<ignored|.*>', (Request request) {
     return Response.ok('', headers: corsHeaders);
   });
