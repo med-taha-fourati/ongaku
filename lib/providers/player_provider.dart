@@ -8,10 +8,16 @@ import '../models/radio_station.dart';
 import '../repositories/analytics_repository.dart';
 import '../models/listening_session.dart';
 
+enum PlaybackSource {
+  song,
+  radio,
+}
+
 class PlayerState {
   final AudioPlayer player;
   final SongModel? currentSong;
   final RadioStation? currentStation;
+  final PlaybackSource? playbackSource;
   final List<SongModel> playlist;
   final int currentIndex;
   final bool isPlaying;
@@ -23,6 +29,7 @@ class PlayerState {
     required this.player,
     this.currentSong,
     this.currentStation,
+    this.playbackSource,
     this.playlist = const [],
     this.currentIndex = 0,
     this.isPlaying = false,
@@ -34,6 +41,7 @@ class PlayerState {
   PlayerState copyWith({
     SongModel? currentSong,
     RadioStation? currentStation,
+    PlaybackSource? playbackSource,
     List<SongModel>? playlist,
     int? currentIndex,
     bool? isPlaying,
@@ -45,6 +53,7 @@ class PlayerState {
       player: player,
       currentSong: currentSong ?? this.currentSong,
       currentStation: currentStation ?? this.currentStation,
+      playbackSource: playbackSource ?? this.playbackSource,
       playlist: playlist ?? this.playlist,
       currentIndex: currentIndex ?? this.currentIndex,
       isPlaying: isPlaying ?? this.isPlaying,
@@ -88,18 +97,34 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   Future<void> playSong(SongModel song, List<SongModel> playlist) async {
+    
+    
+    
+    final previousSong = state.currentSong;
+    final previousStation = state.currentStation;
+    final previousSource = state.playbackSource;
+
+    final index = playlist.indexWhere((s) => s.id == song.id);
+
     try {
       _logSession(completed: false);
 
-      final index = playlist.indexWhere((s) => s.id == song.id);
+      
+      await state.player.stop();
+      
+      
       state = state.copyWith(
+        position: Duration.zero,
+        duration: Duration.zero,
         currentSong: song,
-        currentStation: null,
+        
+        playbackSource: PlaybackSource.song,
         playlist: playlist,
         currentIndex: index >= 0 ? index : 0,
         sessionStart: DateTime.now(),
       );
 
+      
       await state.player.setAudioSource(
         AudioSource.uri(
           Uri.parse(song.audioUrl),
@@ -113,35 +138,43 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         ),
       );
 
+      
       await state.player.play();
     } catch (e) {
+      
+      state = state.copyWith(
+        currentSong: previousSong,
+        currentStation: previousStation,
+        playbackSource: previousSource,
+        position: Duration.zero,
+        duration: Duration.zero,
+      );
       throw Exception('Failed to play song: $e');
     }
   }
 
   Future<void> playRadio(RadioStation station, {bool fromRecentlyPlayed = false}) async {
+    final previousSong = state.currentSong;
+    final previousStation = state.currentStation;
+    final previousSource = state.playbackSource;
+
     try {
       _logSession(completed: true);
+
       
-      // Stop any current playback
       await state.player.stop();
-      
-      // Set the new radio station
+      state = state.copyWith(position: Duration.zero, duration: Duration.zero, playlist: const [], currentIndex: 0);
       state = state.copyWith(
         currentStation: station,
-        currentSong: null,
+        
+        playbackSource: PlaybackSource.radio,
         isPlaying: true,
         sessionStart: DateTime.now(),
+        position: Duration.zero,
+        duration: Duration.zero,
       );
+
       
-      // Add to recently played if not coming from recently played list
-      if (!fromRecentlyPlayed) {
-        final ref = ProviderContainer();
-        final notifier = ref.read(recentlyPlayedRadiosProvider.notifier);
-        notifier.addToRecentlyPlayed(station);
-      }
-      
-      // Set audio source
       await state.player.setAudioSource(
         AudioSource.uri(
           Uri.parse(station.streamUrl),
@@ -154,8 +187,23 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         ),
       );
 
+      
+      if (!fromRecentlyPlayed) {
+        final ref = ProviderContainer();
+        final notifier = ref.read(recentlyPlayedRadiosProvider.notifier);
+        notifier.addToRecentlyPlayed(station);
+      }
+
       await state.player.play();
     } catch (e) {
+      
+      state = state.copyWith(
+        currentSong: previousSong,
+        currentStation: previousStation,
+        playbackSource: previousSource,
+        position: Duration.zero,
+        duration: Duration.zero,
+      );
       print('Error playing radio: $e');
       rethrow;
     }

@@ -81,26 +81,23 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       final title = _titleController.text.trim();
       final artist = _artistController.text.trim();
       final genre = _genreController.text.trim();
-      
+
       if (title.isEmpty || artist.isEmpty || genre.isEmpty) {
         throw Exception('Please fill in all required fields');
       }
 
-      // Upload audio file
       final audioUrl = await repository.uploadSong(_audioFile!, user.uid);
       if (audioUrl.isEmpty) {
         throw Exception('Failed to upload audio file');
       }
-      
-      // Upload cover image if available
+
       String? coverUrl;
       if (_coverFile != null) {
         coverUrl = await repository.uploadCover(_coverFile!, user.uid);
       }
 
-      // Create song model
       final song = SongModel(
-        id: '',  // Will be set by Firestore
+        id: '', // Will be set by Firestore
         title: title,
         artist: artist,
         genre: genre,
@@ -109,9 +106,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         uploadedBy: user.uid,
         uploadedAt: DateTime.now(),
         status: SongStatus.pending,
-        duration: 0,  // Will be updated after upload
+        duration: 0, // Will be updated after upload
       );
-      
+
       print('Creating song with data: ${song.toJson()}');
 
       await repository.createSong(song);
@@ -190,7 +187,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
           FilledButton.icon(
             onPressed: _isUploading ? null : _pickAudioFile,
             icon: const Icon(Icons.audio_file),
-            label: Text(_audioFile != null ? 'Change Audio File' : 'Select Audio File *'),
+            label: Text(_audioFile != null
+                ? 'Change Audio File'
+                : 'Select Audio File *'),
           ),
           if (_audioFile != null)
             Padding(
@@ -204,7 +203,8 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
           OutlinedButton.icon(
             onPressed: _isUploading ? null : _pickCoverImage,
             icon: const Icon(Icons.image),
-            label: Text(_coverFile != null ? 'Change Cover Image' : 'Add Cover Image'),
+            label: Text(
+                _coverFile != null ? 'Change Cover Image' : 'Add Cover Image'),
           ),
           if (_coverFile != null)
             Padding(

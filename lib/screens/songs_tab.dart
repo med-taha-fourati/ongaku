@@ -73,7 +73,9 @@ class SongsTab extends ConsumerWidget {
                       final song = songs[index];
                       return GestureDetector(
                         onTap: () {
-                          ref.read(playerProvider.notifier).playSong(song, songs);
+                          ref
+                              .read(playerProvider.notifier)
+                              .playSong(song, songs);
                         },
                         child: Container(
                           width: 160,
@@ -84,28 +86,37 @@ class SongsTab extends ConsumerWidget {
                               Container(
                                 height: 140,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceVariant,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: song.coverUrl != null
                                     ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    song.coverUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.music_note, size: 48),
-                                  ),
-                                )
-                                    : const Center(child: Icon(Icons.music_note, size: 48)),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          song.coverUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(Icons.music_note,
+                                                  size: 48),
+                                        ),
+                                      )
+                                    : const Center(
+                                        child:
+                                            Icon(Icons.music_note, size: 48)),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 song.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                               ),
                               Text(
                                 song.artist,
@@ -130,7 +141,7 @@ class SongsTab extends ConsumerWidget {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          
+
           // Recently Played Radios Section
           if (recentlyPlayedRadios.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -147,13 +158,16 @@ class SongsTab extends ConsumerWidget {
                 height: 120,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: recentlyPlayedRadios.length,
                   itemBuilder: (context, index) {
                     final radio = recentlyPlayedRadios[index];
                     return GestureDetector(
                       onTap: () {
-                        ref.read(playerProvider.notifier).playRadio(radio, fromRecentlyPlayed: true);
+                        ref
+                            .read(playerProvider.notifier)
+                            .playRadio(radio, fromRecentlyPlayed: true);
                       },
                       child: Container(
                         width: 120,
@@ -164,7 +178,9 @@ class SongsTab extends ConsumerWidget {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceVariant,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceVariant,
                                 borderRadius: BorderRadius.circular(40),
                                 image: radio.imageUrl != null
                                     ? DecorationImage(
@@ -194,8 +210,7 @@ class SongsTab extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
           ],
-          
-          // All Songs Section
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -214,7 +229,7 @@ class SongsTab extends ConsumerWidget {
               }
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
-                      (context, index) {
+                  (context, index) {
                     final song = songs[index];
                     return SongTile(
                       song: song,

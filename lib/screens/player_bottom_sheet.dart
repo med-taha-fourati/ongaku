@@ -11,14 +11,31 @@ class PlayerBottomSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playerProvider);
 
-    final isRadio = state.currentStation != null;
     final song = state.currentSong;
     final station = state.currentStation;
+    final playbackSource = state.playbackSource;
+    final bool isRadio = playbackSource == PlaybackSource.radio ||
+        (playbackSource == null && station != null && song == null);
+    final bool isSong = playbackSource == PlaybackSource.song ||
+        (playbackSource == null && song != null);
 
-    // --- Layout variables ---
-    final String title = isRadio ? station!.name : (song?.title ?? '');
-    final String subtitle = isRadio ? station!.country : (song?.artist ?? '');
-    final String? imageUrl = isRadio ? station!.imageUrl : song?.coverUrl;
+    final String title = playbackSource == PlaybackSource.radio
+        ? (station?.name ?? '')
+        : (playbackSource == PlaybackSource.song
+            ? (song?.title ?? '')
+            : ((song != null && song.title.isNotEmpty)
+                ? song.title
+                : (station?.name ?? '')));
+    final String subtitle = playbackSource == PlaybackSource.radio
+        ? (station?.country ?? '')
+        : (playbackSource == PlaybackSource.song
+            ? (song?.artist ?? '')
+            : ((song != null && song.artist.isNotEmpty)
+                ? song.artist
+                : (station?.country ?? '')));
+    final String? imageUrl = playbackSource == PlaybackSource.radio
+        ? station?.imageUrl
+        : song?.coverUrl;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -47,19 +64,17 @@ class PlayerBottomSheet extends ConsumerWidget {
                 ),
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.music_note),
-                  ),
-                )
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.music_note),
+                        ),
+                      )
                     : const Icon(Icons.music_note),
               ),
               const SizedBox(width: 16),
-
-              // ==== Info ====
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +95,6 @@ class PlayerBottomSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-
               IconButton(
                 icon: Icon(state.isPlaying
                     ? Icons.pause_circle_filled
@@ -96,24 +110,41 @@ class PlayerBottomSheet extends ConsumerWidget {
               ),
             ],
           ),
-
-          AnimatedCrossFade(
-            crossFadeState: isRadio
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
+          AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
-            firstChild: station != null
-                ? _buildRadioDetails(context, station)
-                : const SizedBox.shrink(),
-            secondChild: _buildSongProgress(context, state),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            child: (playbackSource == PlaybackSource.radio ||
+                    (playbackSource == null && station != null && song == null))
+                ? (station != null
+                    ? KeyedSubtree(
+                        key: ValueKey(
+                            "radio-${playbackSource ?? 'none'}-${station.id}"),
+                        child: _buildRadioDetails(context, station),
+                      )
+                    : const SizedBox.shrink())
+                : KeyedSubtree(
+                    key: ValueKey(
+                        "song-${playbackSource ?? 'none'}-${song?.id ?? 'none'}"),
+                    child: _buildSongProgress(context, state),
+                  ),
           ),
-
         ],
       ),
     );
   }
 
-  // ======= Radio Details =======
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = duration.inHours;
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+
   Widget _buildRadioDetails(BuildContext context, RadioStation station) {
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
@@ -152,29 +183,47 @@ class PlayerBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildSongProgress(BuildContext context, dynamic state) {
-    return StreamBuilder<Duration>(
-      stream: state.player.positionStream,
-      builder: (context, snapshot) {
-        final position = snapshot.data ?? Duration.zero;
-        final duration = state.player.duration ?? Duration.zero;
+  Widget _buildSongProgress(BuildContext context, PlayerState state) {
+    return KeyedSubtree(
+      key: ValueKey('song-progress-${state.currentSong?.id ?? 'none'}'),
+      child: StreamBuilder<Duration>(
+        stream: state.player.positionStream,
+        builder: (context, snapshot) {
+          final position = snapshot.data ?? Duration.zero;
+          final duration = state.player.duration ?? Duration.zero;
 
-        final safePosition = position.inMilliseconds.toDouble();
-        final safeDuration = duration.inMilliseconds.toDouble();
+          final safePosition = position.inMilliseconds.toDouble();
+          final safeDuration = duration.inMilliseconds.toDouble();
 
-        return Slider(
-          value: safeDuration > 0
-              ? safePosition.clamp(0.0, safeDuration).toDouble()
-              : 0.0,
-          max: safeDuration > 0 ? safeDuration : 1.0,
-          onChanged: safeDuration <= 0
-              ? null
-              : (value) {
-            state.player.seek(Duration(milliseconds: value.toInt()));
-          },
-        );
-
-      },
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Slider(
+                value: safeDuration > 0
+                    ? safePosition.clamp(0.0, safeDuration).toDouble()
+                    : 0.0,
+                max: safeDuration > 0 ? safeDuration : 1.0,
+                onChanged: safeDuration <= 0
+                    ? null
+                    : (value) {
+                        state.player
+                            .seek(Duration(milliseconds: value.toInt()));
+                      },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_formatDuration(position)),
+                    Text(_formatDuration(duration)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
