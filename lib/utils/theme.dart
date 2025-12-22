@@ -8,7 +8,7 @@ class AppTheme {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: scheme.background,
+      scaffoldBackgroundColor: scheme.surface,
       textTheme: GoogleFonts.interTextTheme(),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.primaryContainer,
@@ -32,7 +32,7 @@ class AppTheme {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: scheme.background,
+      scaffoldBackgroundColor: scheme.surface,
       textTheme: GoogleFonts.interTextTheme(ThemeData(brightness: Brightness.dark).textTheme),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.primaryContainer,
