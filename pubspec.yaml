@@ -21,7 +21,7 @@ dependencies:
   just_audio: ^0.9.36
   just_audio_background: ^0.0.1-beta.10
   audio_session: ^0.1.18
-  flutter_webrtc: ^0.9.48
+  flutter_webrtc: ^0.12.0
   flutter_foreground_task: ^6.1.2
   cached_network_image: ^3.3.0
   file_picker: ^8.3.6
