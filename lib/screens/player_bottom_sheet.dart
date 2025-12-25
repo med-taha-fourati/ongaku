@@ -74,7 +74,8 @@ class PlayerBottomSheet extends ConsumerWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                   child: imageUrl != null && imageUrl.isNotEmpty
                       ? Hero(

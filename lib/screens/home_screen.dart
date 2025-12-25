@@ -5,6 +5,7 @@ import '../providers/connectivity_provider.dart';
 import 'songs_tab.dart';
 import 'radio_tab.dart';
 import 'upload_screen.dart';
+import 'rooms_tab.dart';
 import 'admin_tab.dart';
 import 'player_bottom_sheet.dart';
 import '../providers/player_provider.dart';
@@ -28,6 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tabs = [
       const SongsTab(),
       const RadioTab(),
+      const RoomsTab(),
       const UploadScreen(),
       if (currentUser.value?.isAdmin ?? false) const AdminTab(),
     ];
@@ -67,6 +69,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const NavigationDestination(
                 icon: Icon(Icons.radio),
                 label: 'Radio',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.groups),
+                label: 'Rooms',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.upload),

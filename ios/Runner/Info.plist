@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ongaku needs microphone access for voice chat in music rooms</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ongaku needs camera access for WebRTC functionality</string>
+
 </dict>
 </plist>

@@ -8,7 +8,17 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'providers/auth_provider.dart';
 import 'utils/theme.dart';
+import 'services/audio_session_manager.dart';
 import 'dart:io' show Platform;
+
+Future<void> _initializeAudioSession() async {
+  try {
+    await AudioSessionManager.initialize();
+    await AudioSessionManager.handleInterruptions();
+  } catch (e) {
+    debugPrint('Audio session initialization error: $e');
+  }
+}
 
 Future<void> _initializeFirebase() async {
   try {
@@ -34,6 +44,9 @@ Future<void> _initializeAudioService() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await _initializeAudioSession();
+  
   await Future.wait([
     _initializeFirebase(),
     _initializeAudioService(),
