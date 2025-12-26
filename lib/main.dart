@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'providers/auth_provider.dart';
 import 'utils/theme.dart';
 import 'services/audio_session_manager.dart';
+import 'services/foreground_service_manager.dart';
 import 'dart:io' show Platform;
 
 Future<void> _initializeAudioSession() async {
@@ -46,6 +47,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await _initializeAudioSession();
+  await ForegroundServiceManager.initialize();
   
   await Future.wait([
     _initializeFirebase(),

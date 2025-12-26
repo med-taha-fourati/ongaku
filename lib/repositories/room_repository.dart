@@ -184,6 +184,7 @@ class RoomRepository {
 
         transaction.update(roomRef, {
           'participantCount': FieldValue.increment(1),
+          'participantIds': FieldValue.arrayUnion([uid]),
         });
       });
     } catch (e) {
@@ -203,6 +204,7 @@ class RoomRepository {
         transaction.delete(participantRef);
         transaction.update(roomRef, {
           'participantCount': FieldValue.increment(-1),
+          'participantIds': FieldValue.arrayRemove([uid]),
         });
       });
 

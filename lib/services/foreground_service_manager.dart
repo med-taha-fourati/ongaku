@@ -1,3 +1,4 @@
+import 'dart:isolate'; // Added import for SendPort
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
@@ -33,12 +34,13 @@ class ForegroundServiceManager {
     );
   }
 
-  static Future<bool> startHostService({
+  // Renamed to match UI usage
+  static Future<bool> startService({
     required String roomName,
-    required String roomId,
+    String? roomId, // Made optional to match existing call, though usage should ideally pass it
     int participantCount = 1,
   }) async {
-    if (_isRunning && _currentRoomId == roomId) {
+    if (_isRunning && _currentRoomId == roomId && roomId != null) {
       debugPrint('ForegroundService: Already running for room $roomId');
       return true;
     }
@@ -78,7 +80,8 @@ class ForegroundServiceManager {
     debugPrint('ForegroundService: Updated participant count to $count');
   }
 
-  static Future<bool> stopHostService() async {
+  // Renamed to match UI usage
+  static Future<bool> stopService() async {
     if (!_isRunning) {
       debugPrint('ForegroundService: Not running, nothing to stop');
       return true;
@@ -127,5 +130,11 @@ class _ForegroundTaskHandler extends TaskHandler {
 
   @override
   void onNotificationPressed() {
+  }
+  
+  // Implemented missing override
+  @override
+  void onRepeatEvent(DateTime timestamp, SendPort? sendPort) {
+    // Periodic task callback
   }
 }

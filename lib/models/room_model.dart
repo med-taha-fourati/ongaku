@@ -16,6 +16,7 @@ class RoomModel {
   final int participantCount;
   final int maxParticipants;
   final bool isPublic;
+  final List<String> participantIds;
 
   RoomModel({
     required this.id,
@@ -29,9 +30,11 @@ class RoomModel {
     this.participantCount = 1,
     this.maxParticipants = 8,
     this.isPublic = true,
+    this.participantIds = const [],
   });
 
   factory RoomModel.fromJson(String id, Map<String, dynamic> json) {
+    final List<String> pIds = List<String>.from(json['participantIds'] ?? []);
     return RoomModel(
       id: id,
       hostUid: json['hostUid'] ?? '',
@@ -44,9 +47,10 @@ class RoomModel {
       ),
       lastUpdated: DateTime.parse(json['lastUpdated']),
       createdAt: DateTime.parse(json['createdAt']),
-      participantCount: json['participantCount'] ?? 1,
+      participantCount: pIds.isNotEmpty ? pIds.length : (json['participantCount'] ?? 1),
       maxParticipants: json['maxParticipants'] ?? 8,
       isPublic: json['isPublic'] ?? true,
+      participantIds: pIds,
     );
   }
 
@@ -59,9 +63,10 @@ class RoomModel {
       'playbackState': playbackState.name,
       'lastUpdated': lastUpdated.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
-      'participantCount': participantCount,
+      'participantCount': participantIds.length,
       'maxParticipants': maxParticipants,
       'isPublic': isPublic,
+      'participantIds': participantIds,
     };
   }
 
@@ -73,6 +78,7 @@ class RoomModel {
     int? participantCount,
     int? maxParticipants,
     bool? isPublic,
+    List<String>? participantIds,
   }) {
     return RoomModel(
       id: id,
@@ -86,6 +92,7 @@ class RoomModel {
       participantCount: participantCount ?? this.participantCount,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       isPublic: isPublic ?? this.isPublic,
+      participantIds: participantIds ?? this.participantIds,
     );
   }
 

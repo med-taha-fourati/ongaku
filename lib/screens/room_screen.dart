@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import '../models/room_model.dart';
+import '../models/participant_model.dart';
+import '../models/song_model.dart';
+import '../providers/auth_provider.dart';
+import '../providers/room_provider.dart';
+import '../providers/room_player_provider.dart';
+import '../repositories/room_repository.dart';
+import '../services/webrtc_service.dart';
+import '../services/foreground_service_manager.dart';
+import '../services/room_lifecycle_service.dart';
+import '../widgets/participant_grid.dart';
+
+import '../widgets/queue_panel.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -13,22 +27,300 @@ class RoomScreen extends ConsumerStatefulWidget {
   ConsumerState<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends ConsumerState<RoomScreen> {
+class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObserver {
+  final RoomLifecycleService _lifecycleService = RoomLifecycleService(RoomRepository());
+  WebRTCService? _webRTCService;
+  bool _isConnecting = true;
+  bool _isMuted = false;
+  bool _isDeafened = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WakelockPlus.enable();
+    
+    final user = ref.read(currentUserProvider).value;
+    if (user != null) {
+      _lifecycleService.startHeartbeat(widget.roomId, user.uid);
+      _lifecycleService.monitorRoomHealth(widget.roomId, user.uid);
+    }
+    
+    _joinRoom();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    WakelockPlus.disable();
+    _lifecycleService.dispose();
+    _leaveRoom();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      _leaveRoom();
+    }
+  }
+
+  Future<void> _joinRoom() async {
+    final user = ref.read(currentUserProvider).value;
+    if (user == null) {
+      Navigator.pop(context);
+      return;
+    }
+
+    try {
+      final repo = ref.read(roomRepositoryProvider);
+      
+      // Join Firestore room
+      await repo.joinRoom(
+        roomId: widget.roomId,
+        uid: user.uid,
+        displayName: user.displayName ?? 'Unknown',
+        avatarUrl: null, // Add avatar url if available
+      );
+
+      // Initialize WebRTC
+      _webRTCService = WebRTCService(
+        roomId: widget.roomId,
+        localUid: user.uid,
+      );
+      await _webRTCService!.initialize();
+      
+      // Initialize Player
+      // ref.read(roomPlayerProvider(widget.roomId)); 
+
+      setState(() => _isConnecting = false);
+      
+      // If host, start foreground service
+      final room = await repo.getRoom(widget.roomId);
+      if (room?.hostUid == user.uid) {
+        await ForegroundServiceManager.startService(
+          roomName: room?.roomName ?? 'Music Room',
+          roomId: widget.roomId,
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to join room: $e')),
+        );
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  Future<void> _leaveRoom() async {
+    final user = ref.read(currentUserProvider).value;
+    if (user == null) return;
+
+    try {
+      if (_webRTCService != null) {
+        await _webRTCService!.dispose();
+      }
+
+      await ForegroundServiceManager.stopService();
+
+      await ref.read(roomRepositoryProvider).leaveRoom(
+        roomId: widget.roomId,
+        uid: user.uid,
+      );
+    } catch (e) {
+      debugPrint('Error leaving room: $e');
+    }
+  }
+
+  void _showQueueSheet(BuildContext context, bool isHost) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: QueuePanel(roomId: widget.roomId, isHost: isHost),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Room'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => Navigator.pop(context),
+    final roomAsync = ref.watch(roomStreamProvider(widget.roomId));
+    final participantsAsync = ref.watch(participantsProvider(widget.roomId));
+    final currentUser = ref.watch(currentUserProvider).value;
+    final playerState = ref.watch(roomPlayerProvider(widget.roomId));
+
+    if (currentUser == null) return const Scaffold(body: SizedBox());
+
+    return roomAsync.when(
+      data: (room) {
+        if (room == null) return const Scaffold(body: Center(child: Text('Room ended')));
+
+        final isHost = room.hostUid == currentUser.uid;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(room.roomName),
+                Text(
+                  isHost ? 'Host' : 'Listener',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(_isMuted ? Icons.mic_off : Icons.mic),
+                color: _isMuted ? Colors.red : null,
+                tooltip: _isMuted ? 'Unmute' : 'Mute',
+                onPressed: () {
+                  setState(() {
+                    _isMuted = !_isMuted;
+                    _webRTCService?.toggleMute();
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(_isDeafened ? Icons.headset_off : Icons.headset),
+                color: _isDeafened ? Colors.red : null,
+                tooltip: _isDeafened ? 'Undeafen' : 'Deafen',
+                onPressed: () {
+                  setState(() {
+                    _isDeafened = !_isDeafened;
+                    _webRTCService?.toggleDeafen();
+                  });
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.queue_music),
+                onPressed: () => _showQueueSheet(context, isHost),
+              ),
+              IconButton(
+                icon: const Icon(Icons.exit_to_app),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Leave Room?'),
+                      content: Text(isHost 
+                          ? 'As host, leaving will end the room for everyone.' 
+                          : 'Are you sure you want to leave?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Leave'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true && mounted) {
+                    Navigator.pop(context); // Will trigger dispose -> leaveRoom
+                  }
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-      body: const Center(
-        child: Text('Room Screen - Under Construction'),
-      ),
+          body: Column(
+            children: [
+              // Now Playing Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                child: Column(
+                  children: [
+                    if (playerState.currentSong != null) ...[
+                      Text(
+                        playerState.currentSong!.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        playerState.currentSong!.artist,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      LinearProgressIndicator(
+                        value: playerState.duration.inMilliseconds > 0
+                            ? playerState.position.inMilliseconds / playerState.duration.inMilliseconds
+                            : 0,
+                      ),
+                      const SizedBox(height: 16),
+                      if (isHost)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.skip_previous),
+                              onPressed: () {}, // Prev
+                            ),
+                            IconButton(
+                              icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow),
+                              onPressed: () {
+                                if (playerState.isPlaying) {
+                                  ref.read(roomPlayerProvider(widget.roomId).notifier).hostPause();
+                                } else {
+                                  ref.read(roomPlayerProvider(widget.roomId).notifier).hostResume();
+                                }
+                              },
+                              style: IconButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                iconSize: 32,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.skip_next),
+                              onPressed: () {}, // Next
+                            ),
+                          ],
+                        ),
+                    ] else
+                      Center(
+                        child: Text(
+                          isHost ? 'Play a song to start!' : 'Waiting for host...',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              
+              const Divider(height: 1),
+              
+              // Participants Grid
+              Expanded(
+                child: participantsAsync.when(
+                  data: (participants) {
+                    // Update WebRTC connections when participants change
+                    if (_webRTCService != null && !isHost) { // Simple full mesh for now
+                       // _webRTCService!.connectToParticipants(participants.map((p) => p.uid).toList());
+                       // Note: Logic moved to specific triggers or internal service management to avoid spamming
+                    }
+                    
+                    return ParticipantGrid(
+                      participants: participants,
+                      currentUserId: currentUser.uid,
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, stack) => Center(child: Text('Error: $e')),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, stack) => Scaffold(body: Center(child: Text('Error loading room: $e'))),
     );
   }
 }
