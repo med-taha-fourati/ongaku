@@ -57,18 +57,18 @@ class _ParticipantTile extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             // Speaking Indicator Ripple
-            if (participant.isSpeaking && isConnected)
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.5),
-                    width: 3,
+              if (participant.isSpeaking && isConnected)
+                Container(
+                  width: 76, // Slightly larger
+                  height: 76,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.greenAccent, // Explicit green for speaking
+                      width: 4, // Thicker border
+                    ),
                   ),
                 ),
-              ),
             
             // Avatar
             Container(

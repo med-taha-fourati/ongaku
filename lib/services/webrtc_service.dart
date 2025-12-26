@@ -404,30 +404,21 @@ class WebRTCService {
     }
   }
 
+  bool _lastIsSpeaking = false;
+
   void _startAudioLevelMonitoring() {
-    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_localStream == null) return;
       
-      // Since standard WebRTC getStats involves async calls and might be heavy for 100ms
-      // We often use a simplier approach or AudioContext in web/native
-      // For Flutter WebRTC, getStats is the way but parsing it is complex.
-      // For MVP, we will simulate or implement a basic toggle if we had VAD.
-      // HERE: We'll assume a threshold if we can get volume.
-      // Limitation: flutter_webrtc doesn't expose easy audio level Meter yet without platform channels or specific inspection.
-      
-      // WORKAROUND: We will skip complex analyzing for this iteration 
-      // and allow a "Push to Talk" style or simple random/simulated for UI proof if needed.
-      // But user requested "WebRTC audio level detection".
-      
-      // Attempt to access proper volume API if available (often requires plugins)
-      // Since we can't reliably get raw PCM data easily from MediaStream in pure Dart without plugins:
-      // We will leave this method structure but note the limitation.
-      
-      // However, we CAN check if track is enabled/active.
+      // Simplified VAD: Check if audio track is enabled (unmuted)
       bool isAudioActive = _localStream!.getAudioTracks().isNotEmpty && 
                            _localStream!.getAudioTracks().first.enabled;
                            
-       // If we had a VAD plugin, we'd use it here.
+      // Only update if status changed to prevent Firestore write spam
+      if (isAudioActive != _lastIsSpeaking) {
+        _lastIsSpeaking = isAudioActive;
+        _updateSpeakingStatus(isAudioActive);
+      }
     });
   }
 

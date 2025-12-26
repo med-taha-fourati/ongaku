@@ -34,12 +34,18 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   bool _isMuted = false;
   bool _isDeafened = false;
 
+  RoomRepository? _roomRepository;
+  String? _currentUid;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable();
     
+    _roomRepository = ref.read(roomRepositoryProvider);
+    _currentUid = ref.read(currentUserProvider).value?.uid;
+
     final user = ref.read(currentUserProvider).value;
     if (user != null) {
       _lifecycleService.startHeartbeat(widget.roomId, user.uid);
@@ -68,7 +74,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   Future<void> _joinRoom() async {
     final user = ref.read(currentUserProvider).value;
     if (user == null) {
-      Navigator.pop(context);
+      debugPrint('Room join failed: User is null');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: User not authenticated')),
+        );
+        Navigator.pop(context);
+      }
       return;
     }
 
@@ -93,7 +105,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
       // Initialize Player
       // ref.read(roomPlayerProvider(widget.roomId)); 
 
-      setState(() => _isConnecting = false);
+      if (mounted) setState(() => _isConnecting = false);
       
       // If host, start foreground service
       final room = await repo.getRoom(widget.roomId);
@@ -115,8 +127,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   }
 
   Future<void> _leaveRoom() async {
-    final user = ref.read(currentUserProvider).value;
-    if (user == null) return;
+    final uid = _currentUid;
+    final repo = _roomRepository;
+    
+    if (uid == null || repo == null) return;
 
     try {
       if (_webRTCService != null) {
@@ -125,9 +139,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
 
       await ForegroundServiceManager.stopService();
 
-      await ref.read(roomRepositoryProvider).leaveRoom(
+      await repo.leaveRoom(
         roomId: widget.roomId,
-        uid: user.uid,
+        uid: uid,
       );
     } catch (e) {
       debugPrint('Error leaving room: $e');

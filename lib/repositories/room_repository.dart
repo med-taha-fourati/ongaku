@@ -177,13 +177,18 @@ class RoomRepository {
           throw Exception('Room is full');
         }
 
+        final currentIds = List<String>.from(roomDoc.data()!['participantIds'] ?? []);
+        if (!currentIds.contains(uid)) {
+          currentIds.add(uid);
+        }
+
         transaction.set(
           roomRef.collection('participants').doc(uid),
           participant.toJson(),
         );
 
         transaction.update(roomRef, {
-          'participantCount': FieldValue.increment(1),
+          'participantCount': currentIds.length,
           'participantIds': FieldValue.arrayUnion([uid]),
         });
       });
@@ -197,19 +202,35 @@ class RoomRepository {
     required String uid,
   }) async {
     try {
+      final room = await getRoom(roomId);
+      if (room == null) return;
+
+      // If host leaves, delete the room entirely
+      if (room.hostUid == uid) {
+        await deleteRoom(roomId);
+        return;
+      }
+
       await _firestore.runTransaction((transaction) async {
         final roomRef = _firestore.collection('rooms').doc(roomId);
         final participantRef = roomRef.collection('participants').doc(uid);
+        
+        final roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists) return; // Room might be deleted already
+
+        final currentIds = List<String>.from(roomDoc.data()!['participantIds'] ?? []);
+        currentIds.remove(uid);
 
         transaction.delete(participantRef);
         transaction.update(roomRef, {
-          'participantCount': FieldValue.increment(-1),
+          'participantCount': currentIds.length,
           'participantIds': FieldValue.arrayRemove([uid]),
         });
       });
 
-      final room = await getRoom(roomId);
-      if (room != null && room.participantCount == 0) {
+      // Cleanup if empty (redundant check if host deletes, but good for last participant)
+      final updatedRoom = await getRoom(roomId);
+      if (updatedRoom != null && updatedRoom.participantCount == 0) {
         await deleteRoom(roomId);
       }
     } catch (e) {
