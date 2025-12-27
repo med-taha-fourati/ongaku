@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum PlaybackState {
   playing,
   paused,
@@ -35,6 +37,13 @@ class RoomModel {
 
   factory RoomModel.fromJson(String id, Map<String, dynamic> json) {
     final List<String> pIds = List<String>.from(json['participantIds'] ?? []);
+    
+    DateTime parseDateTime(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.parse(val);
+      return DateTime.now();
+    }
+
     return RoomModel(
       id: id,
       hostUid: json['hostUid'] ?? '',
@@ -45,8 +54,8 @@ class RoomModel {
         (e) => e.name == json['playbackState'],
         orElse: () => PlaybackState.stopped,
       ),
-      lastUpdated: DateTime.parse(json['lastUpdated']),
-      createdAt: DateTime.parse(json['createdAt']),
+      lastUpdated: parseDateTime(json['lastUpdated']),
+      createdAt: parseDateTime(json['createdAt']),
       participantCount: pIds.isNotEmpty ? pIds.length : (json['participantCount'] ?? 1),
       maxParticipants: json['maxParticipants'] ?? 8,
       isPublic: json['isPublic'] ?? true,
