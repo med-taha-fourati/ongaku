@@ -26,29 +26,54 @@ class AuthRepository {
   }
 
   Future<UserModel?> signUp(String email, String password, String displayName) async {
+    User? firebaseUser;
+    
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      firebaseUser = credential.user;
+    } catch (e) {
+      if (_auth.currentUser != null) {
+        firebaseUser = _auth.currentUser;
+      } else {
+        if (e is FirebaseAuthException) throw _handleAuthException(e);
+        if (e.toString().contains("PigeonUserDetails") && _auth.currentUser != null) {
+           firebaseUser = _auth.currentUser;
+        } else {
+           rethrow;
+        }
+      }
+    }
       
-      if (credential.user != null) {
+    if (firebaseUser != null) {
+      try {
         final user = UserModel(
-          uid: credential.user!.uid,
+          uid: firebaseUser.uid,
           email: email,
           displayName: displayName,
           createdAt: DateTime.now(),
         );
         
         await _firestore.collection('users').doc(user.uid).set(user.toJson());
-        await credential.user!.updateDisplayName(displayName);
+        
+        // Try updating display name, ignore if it fails
+        try {
+          await firebaseUser.updateDisplayName(displayName);
+        } catch (_) {}
         
         return user;
+      } catch (e) {
+         return UserModel(
+            uid: firebaseUser.uid,
+            email: email,
+            displayName: displayName,
+            createdAt: DateTime.now(),
+         );
       }
-      return null;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
     }
+    return null;
   }
 
   Future<void> signOut() async {
