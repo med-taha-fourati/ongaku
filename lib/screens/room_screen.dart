@@ -12,6 +12,7 @@ import '../services/webrtc_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/room_lifecycle_service.dart';
 import '../widgets/participant_grid.dart';
+import '../models/user_model.dart';
 
 import '../widgets/queue_panel.dart';
 
@@ -52,7 +53,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
       _lifecycleService.monitorRoomHealth(widget.roomId, user.uid);
     }
     
-    _joinRoom();
+    // Defer join to next frame to ensure ScaffoldMessenger context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _joinRoom();
+    });
   }
 
   @override
@@ -72,19 +76,34 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   }
 
   Future<void> _joinRoom() async {
-    final user = ref.read(currentUserProvider).value;
-    if (user == null) {
-      debugPrint('Room join failed: User is null');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: User not authenticated')),
-        );
-        Navigator.pop(context);
-      }
-      return;
-    }
-
     try {
+      // Wait for user data to load
+      var user = await ref.read(currentUserProvider.future);
+      
+      // Fallback: If provider is null (e.g. Firestore doc missing), verify raw Auth
+      if (user == null) {
+        final rawUser = ref.read(authRepositoryProvider).currentUser;
+        if (rawUser != null) {
+          debugPrint('Using raw Firebase user fallback');
+          user = UserModel(
+            uid: rawUser.uid,
+            email: rawUser.email ?? '',
+            displayName: rawUser.displayName ?? 'Unknown',
+            createdAt: DateTime.now(), // approximation
+          );
+        }
+      }
+
+      if (user == null) {
+        debugPrint('Room join failed: User is null after loading and fallback');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: User not authenticated')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
       final repo = ref.read(roomRepositoryProvider);
       
       // Join Firestore room
@@ -163,10 +182,21 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   Widget build(BuildContext context) {
     final roomAsync = ref.watch(roomStreamProvider(widget.roomId));
     final participantsAsync = ref.watch(participantsProvider(widget.roomId));
-    final currentUser = ref.watch(currentUserProvider).value;
+    final firestoreUser = ref.watch(currentUserProvider).value;
+    final firebaseUser = ref.watch(authStateProvider).value;
     final playerState = ref.watch(roomPlayerProvider(widget.roomId));
 
-    if (currentUser == null) return const Scaffold(body: SizedBox());
+    final currentUser = firestoreUser ?? 
+        (firebaseUser != null 
+            ? UserModel(
+                uid: firebaseUser.uid,
+                email: firebaseUser.email ?? '',
+                displayName: firebaseUser.displayName ?? 'Unknown',
+                createdAt: DateTime.now(),
+              ) 
+            : null);
+
+    if (currentUser == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return roomAsync.when(
       data: (room) {
