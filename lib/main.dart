@@ -11,6 +11,7 @@ import 'utils/theme.dart';
 import 'services/audio_session_manager.dart';
 import 'services/foreground_service_manager.dart';
 import 'dart:io' show Platform;
+import 'providers/active_room_provider.dart';
 
 Future<void> _initializeAudioSession() async {
   try {
@@ -63,6 +64,9 @@ class MusicPlayerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    // Keep active room session alive
+    ref.watch(activeRoomSessionProvider); 
+    // Note: We need to import the provider first.
 
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {

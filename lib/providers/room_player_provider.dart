@@ -390,7 +390,7 @@ class RoomPlayerNotifier extends StateNotifier<RoomPlayerState> {
   }
 }
 
-final roomPlayerProvider = StateNotifierProvider.family<RoomPlayerNotifier, RoomPlayerState, String>(
+final roomPlayerProvider = StateNotifierProvider.autoDispose.family<RoomPlayerNotifier, RoomPlayerState, String>(
   (ref, roomId) {
     final user = ref.watch(authStateProvider).value;
     final userId = user?.uid ?? '';

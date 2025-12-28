@@ -11,6 +11,7 @@ import '../repositories/room_repository.dart';
 import '../services/webrtc_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/room_lifecycle_service.dart';
+import '../providers/active_room_provider.dart'; 
 import '../widgets/participant_grid.dart';
 import '../models/user_model.dart';
 
@@ -31,7 +32,7 @@ class RoomScreen extends ConsumerStatefulWidget {
 
 class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObserver {
   final RoomLifecycleService _lifecycleService = RoomLifecycleService(RoomRepository());
-  WebRTCService? _webRTCService;
+  // WebRTCService is now managed by provider
   bool _isConnecting = true;
   bool _isMuted = false;
   bool _isDeafened = false;
@@ -48,16 +49,17 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     _roomRepository = ref.read(roomRepositoryProvider);
     _currentUid = ref.read(currentUserProvider).value?.uid;
 
+    // Set Active Room
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+       ref.read(activeRoomIdProvider.notifier).state = widget.roomId;
+       _joinRoom();
+    });
+
     final user = ref.read(currentUserProvider).value;
     if (user != null) {
       _lifecycleService.startHeartbeat(widget.roomId, user.uid);
       _lifecycleService.monitorRoomHealth(widget.roomId, user.uid);
     }
-    
-    // Defer join to next frame to ensure ScaffoldMessenger context is available
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _joinRoom();
-    });
   }
 
   @override
@@ -65,23 +67,21 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     WakelockPlus.disable();
     _lifecycleService.dispose();
-    _leaveRoom();
+    // DO NOT call _leaveRoom() here. Background playback is desired on pop.
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
-      _leaveRoom();
+      _leaveRoom(isFullExit: true);
     }
   }
 
   Future<void> _joinRoom() async {
     try {
-      // Wait for user data to load
       var user = await ref.read(currentUserProvider.future);
       
-      // Fallback: If provider is null (e.g. Firestore doc missing), verify raw Auth
       if (user == null) {
         final rawUser = ref.read(authRepositoryProvider).currentUser;
         if (rawUser != null) {
@@ -90,7 +90,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
             uid: rawUser.uid,
             email: rawUser.email ?? '',
             displayName: rawUser.displayName ?? 'Unknown',
-            createdAt: DateTime.now(), // approximation
+            createdAt: DateTime.now(),
           );
         }
       }
@@ -98,10 +98,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
       if (user == null) {
         debugPrint('Room join failed: User is null after loading and fallback');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error: User not authenticated')),
-          );
-          Navigator.pop(context);
+           Navigator.pop(context);
         }
         return;
       }
@@ -112,19 +109,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
         roomId: widget.roomId,
         uid: user.uid,
         displayName: user.displayName ?? 'Unknown',
-        avatarUrl: null, // Add avatar url if available
+        avatarUrl: null,
       );
 
-      // Initialize WebRTC
-      _webRTCService = WebRTCService(
-        roomId: widget.roomId,
-        localUid: user.uid,
-      );
-      await _webRTCService!.initialize();
+      // Initialize WebRTC via Provider
+      final webRTC = ref.read(webRTCServiceProvider(widget.roomId));
+      await webRTC.initialize();
       
-      // Initialize Player
-      // ref.read(roomPlayerProvider(widget.roomId)); 
-
       if (mounted) setState(() => _isConnecting = false);
       
       // If host, start foreground service
@@ -146,23 +137,24 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     }
   }
 
-  Future<void> _leaveRoom() async {
+  Future<void> _leaveRoom({bool isFullExit = false}) async {
     final uid = _currentUid;
     final repo = _roomRepository;
     
     if (uid == null || repo == null) return;
 
     try {
-      if (_webRTCService != null) {
-        await _webRTCService!.dispose();
+      // Clear Active Room ID if full exit
+      if (isFullExit) {
+        ref.read(activeRoomIdProvider.notifier).state = null;
+        
+        await ForegroundServiceManager.stopService();
+
+        await repo.leaveRoom(
+          roomId: widget.roomId,
+          uid: uid,
+        );
       }
-
-      await ForegroundServiceManager.stopService();
-
-      await repo.leaveRoom(
-        roomId: widget.roomId,
-        uid: uid,
-      );
     } catch (e) {
       debugPrint('Error leaving room: $e');
     }
@@ -225,7 +217,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                 onPressed: () {
                   setState(() {
                     _isMuted = !_isMuted;
-                    _webRTCService?.toggleMute();
+                    ref.read(webRTCServiceProvider(widget.roomId)).toggleMute();
                   });
                 },
               ),
@@ -236,7 +228,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                 onPressed: () {
                   setState(() {
                     _isDeafened = !_isDeafened;
-                    _webRTCService?.toggleDeafen();
+                    ref.read(webRTCServiceProvider(widget.roomId)).toggleDeafen();
                   });
                 },
               ),
@@ -268,7 +260,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                   );
 
                   if (confirm == true && mounted) {
-                    Navigator.pop(context); // Will trigger dispose -> leaveRoom
+                    await _leaveRoom(isFullExit: true);
+                    if (mounted) Navigator.pop(context); 
                   }
                 },
               ),
@@ -309,13 +302,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
               
               // Participants Grid
               Expanded(
-                child: participantsAsync.when(
+                  child: participantsAsync.when(
                   data: (participants) {
-                    // Update WebRTC connections when participants change
-                    if (_webRTCService != null && !isHost) { // Simple full mesh for now
-                       // _webRTCService!.connectToParticipants(participants.map((p) => p.uid).toList());
-                       // Note: Logic moved to specific triggers or internal service management to avoid spamming
-                    }
+                    // WebRTC connections managed by service/provider
                     
                     return ParticipantGrid(
                       participants: participants,
