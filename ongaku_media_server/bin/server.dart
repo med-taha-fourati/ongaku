@@ -52,62 +52,10 @@ void main(List<String> args) async {
     return _handleFileUpload(request, 'covers');
   });
 
-  // Get file
-  app.get('/files/<type>/<userId>/<fileName>', (Request request, String type, String userId, String fileName) async {
-    final file = File(path.join(_uploadsDir.path, type, userId, fileName));
-    
-    if (!await file.exists()) {
-      return Response.notFound('File not found');
-    }
-
-    final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-    
-    return Response.ok(
-      file.openRead(),
-      headers: {
-        'Content-Type': mimeType,
-        'Content-Length': (await file.length()).toString(),
-        ...corsHeaders,
-      },
-    );
-  });
-
   // Health check endpoint
   app.get('/health', (Request request) {
     return Response.ok('Server is running', headers: corsHeaders);
   });
-
-  // Create a router for file serving
-  final fileRouter = Router();
-  
-  // Serve song files
-  fileRouter.get('/songs/<userId>/<fileName>', (Request request, String userId, String fileName) async {
-    final file = File('${_uploadsDir.path}/songs/$userId/$fileName');
-    if (!await file.exists()) {
-      return Response.notFound('File not found');
-    }
-    final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-    return Response.ok(
-      file.openRead(),
-      headers: {'Content-Type': mimeType},
-    );
-  });
-  
-  // Serve cover files
-  fileRouter.get('/covers/<userId>/<fileName>', (Request request, String userId, String fileName) async {
-    final file = File('${_uploadsDir.path}/covers/$userId/$fileName');
-    if (!await file.exists()) {
-      return Response.notFound('File not found');
-    }
-    final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
-    return Response.ok(
-      file.openRead(),
-      headers: {'Content-Type': mimeType},
-    );
-  });
-  
-  // Add file router to the main app
-  app.mount('/files/', fileRouter);
 
   // CORS headers middleware
   Middleware corsMiddleware = (innerHandler) {
@@ -127,9 +75,15 @@ void main(List<String> args) async {
       .addMiddleware(corsMiddleware)
       .addHandler(app);
 
-  // Start the server
-  final server = await io.serve(handler, _hostname, _port);
+  // Serve static files using shelf_static which supports Range requests
+  // This is crucial for media playback (seeking/streaming)
+  final staticHandler = createStaticHandler(_uploadsDir.path);
+  app.mount('/files/', staticHandler);
+
+  // Start the server on all interfaces
+  final server = await io.serve(handler, InternetAddress.anyIPv4, _port);
   print('Server running on http://${server.address.host}:${server.port}');
+  print('Connect using your local IP (e.g. 192.168.1.x)');
 }
 
 Future<Response> _handleFileUpload(Request request, String fileType) async {

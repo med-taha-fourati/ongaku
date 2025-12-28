@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'auth_provider.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'dart:async';
 import '../models/room_model.dart';
 import '../models/song_model.dart';
+import '../models/queued_song_model.dart';
 import '../repositories/room_repository.dart';
 import '../repositories/song_repository.dart';
 
@@ -336,9 +338,46 @@ class RoomPlayerNotifier extends StateNotifier<RoomPlayerState> {
     );
   }
 
-  Future<void> _playNextInQueue() async {
+  Future<void> playNext() async {
+    print('RoomPlayerNotifier: playNext() called. isHost: ${state.isHost}');
     if (!state.isHost) return;
 
+    try {
+      final queueStream = _roomRepository.getMasterQueue(roomId);
+      final queue = await queueStream.first;
+      print('RoomPlayerNotifier: Queue length: ${queue.length}');
+
+      if (queue.isEmpty) {
+         print('RoomPlayerNotifier: Queue is empty. Stopping.');
+         await state.player.stop();
+         await _roomRepository.updateRoomPlayback(
+           roomId: roomId,
+           playbackState: PlaybackState.stopped,
+           activeSongId: null,
+         );
+         return;
+      }
+
+      final nextQueuedSong = queue.first;
+      print('RoomPlayerNotifier: Fetching song details for ${nextQueuedSong.songId}');
+      
+      final song = await _songRepository.getSong(nextQueuedSong.songId);
+      print('RoomPlayerNotifier: Fetched song ${song.title} with URL ${song.audioUrl}');
+      
+      final updatedQueue = List<QueuedSong>.from(queue)..removeAt(0);
+      
+      await _roomRepository.updateMasterQueue(roomId: roomId, songs: updatedQueue);
+      
+      print('RoomPlayerNotifier: Calling hostPlaySong');
+      await hostPlaySong(song);
+    } catch (e, stack) {
+       print('RoomPlayerNotifier Error playing next song: $e');
+       print(stack);
+    }
+  }
+  
+  Future<void> _playNextInQueue() async {
+    await playNext();
   }
 
   @override
@@ -353,9 +392,12 @@ class RoomPlayerNotifier extends StateNotifier<RoomPlayerState> {
 
 final roomPlayerProvider = StateNotifierProvider.family<RoomPlayerNotifier, RoomPlayerState, String>(
   (ref, roomId) {
+    final user = ref.watch(authStateProvider).value;
+    final userId = user?.uid ?? '';
+    
     return RoomPlayerNotifier(
       roomId: roomId,
-      userId: '',
+      userId: userId,
       roomRepository: RoomRepository(),
       songRepository: SongRepository(),
     );

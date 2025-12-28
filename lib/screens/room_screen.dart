@@ -15,6 +15,7 @@ import '../widgets/participant_grid.dart';
 import '../models/user_model.dart';
 
 import '../widgets/queue_panel.dart';
+import '../widgets/room_mini_player.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -275,68 +276,34 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
           ),
           body: Column(
             children: [
-              // Now Playing Section
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: Theme.of(context).colorScheme.surfaceContainer,
-                child: Column(
-                  children: [
-                    if (playerState.currentSong != null) ...[
+              // Now Playing / Start Playback Section
+              if (playerState.currentSong != null)
+                RoomMiniPlayer(roomId: widget.roomId, isHost: isHost)
+              else
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  child: Column(
+                    children: [
                       Text(
-                        playerState.currentSong!.title,
-                        style: Theme.of(context).textTheme.titleLarge,
-                        textAlign: TextAlign.center,
+                        isHost ? 'Play a song to start!' : 'Waiting for host...',
+                        style: const TextStyle(fontStyle: FontStyle.italic),
                       ),
-                      Text(
-                        playerState.currentSong!.artist,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      LinearProgressIndicator(
-                        value: playerState.duration.inMilliseconds > 0
-                            ? playerState.position.inMilliseconds / playerState.duration.inMilliseconds
-                            : 0,
-                      ),
-                      const SizedBox(height: 16),
-                      if (isHost)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.skip_previous),
-                              onPressed: () {}, // Prev
-                            ),
-                            IconButton(
-                              icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow),
-                              onPressed: () {
-                                if (playerState.isPlaying) {
-                                  ref.read(roomPlayerProvider(widget.roomId).notifier).hostPause();
-                                } else {
-                                  ref.read(roomPlayerProvider(widget.roomId).notifier).hostResume();
-                                }
-                              },
-                              style: IconButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                iconSize: 32,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.skip_next),
-                              onPressed: () {}, // Next
-                            ),
-                          ],
+                      if (isHost && ref.watch(masterQueueProvider(widget.roomId)).valueOrNull?.isNotEmpty == true)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              ref.read(roomPlayerProvider(widget.roomId).notifier).playNext();
+                            },
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Start Playback'),
+                          ),
                         ),
-                    ] else
-                      Center(
-                        child: Text(
-                          isHost ? 'Play a song to start!' : 'Waiting for host...',
-                          style: const TextStyle(fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               
               const Divider(height: 1),
               

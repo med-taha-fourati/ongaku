@@ -286,6 +286,22 @@ class SongRepository {
     }
   }
 
+  Future<SongModel> getSong(String songId) async {
+    try {
+      final doc = await _firestore.collection('songs').doc(songId).get();
+      if (!doc.exists) {
+        throw Exception('Song not found');
+      }
+      final data = doc.data()!;
+      final song = SongModel.fromJson(doc.id, data);
+      print('SongRepository: Fetched song ${song.title}, Audio URL: ${song.audioUrl}');
+      return song;
+    } catch (e) {
+      print('SongRepository Error: $e');
+      throw Exception('Failed to fetch song: $e');
+    }
+  }
+
   Future<void> deleteSong(String songId) async {
     try {
       await _firestore.collection('songs').doc(songId).delete();

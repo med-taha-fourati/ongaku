@@ -4,6 +4,7 @@ import '../models/queued_song_model.dart';
 import '../models/song_model.dart';
 import '../providers/room_provider.dart';
 import '../repositories/song_repository.dart';
+import '../repositories/room_repository.dart';
 
 class QueuePanel extends ConsumerStatefulWidget {
   final String roomId;
@@ -69,23 +70,31 @@ class _QueuePanelState extends ConsumerState<QueuePanel> with SingleTickerProvid
 
   void _requestSong(SongModel song) {
     if (widget.isHost) {
-      // Host adds directly to queue (to be implemented in RoomRepository)
-      // For now treating as request that auto-approves logic could be added
-      // Or we just add a "add directly" method to repo
+      ref.read(roomRepositoryProvider).addSongToQueue(
+        roomId: widget.roomId,
+        songId: song.id,
+        title: song.title,
+        artist: song.artist,
+        durationMs: 0, // Should be actual duration
+        addedBy: 'Host', // Should get current user name
+      );
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Song added to queue')),
+      );
+    } else {
+      ref.read(roomRepositoryProvider).requestSong(
+        roomId: widget.roomId,
+        songId: song.id,
+        title: song.title,
+        artist: song.artist,
+        durationMs: 0, // Should be actual duration
+        requestedBy: 'User', // Should get current user name
+      );
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Song requested')),
+      );
     }
     
-    ref.read(roomRepositoryProvider).requestSong(
-      roomId: widget.roomId,
-      songId: song.id,
-      title: song.title,
-      artist: song.artist,
-      durationMs: 0, // Should be actual duration
-      requestedBy: 'User', // Should get current user name
-    );
-     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Song requested')),
-    );
     _searchController.clear();
     setState(() => _searchResults = []);
   }

@@ -407,4 +407,52 @@ class RoomRepository {
       throw Exception('Failed to reject request: $e');
     }
   }
+
+  Future<void> addSongToQueue({
+    required String roomId,
+    required String songId,
+    required String title,
+    required String artist,
+    required int durationMs,
+    required String addedBy,
+  }) async {
+    try {
+      final masterRef = _firestore
+          .collection('rooms')
+          .doc(roomId)
+          .collection('queue')
+          .doc('master');
+
+      await _firestore.runTransaction((transaction) async {
+        final masterDoc = await transaction.get(masterRef);
+        final currentQueue = <QueuedSong>[];
+
+        if (masterDoc.exists && masterDoc.data() != null) {
+          final songsData = masterDoc.data()!['songs'] as List<dynamic>? ?? [];
+          currentQueue.addAll(
+            songsData.map((json) => QueuedSong.fromJson(json as Map<String, dynamic>)),
+          );
+        }
+
+        final newSong = QueuedSong(
+          songId: songId,
+          title: title,
+          artist: artist,
+          durationMs: durationMs,
+          requestedBy: addedBy,
+          addedAt: DateTime.now(),
+          position: currentQueue.length,
+        );
+
+        currentQueue.add(newSong);
+
+        transaction.set(masterRef, {
+          'songs': currentQueue.map((s) => s.toJson()).toList(),
+          'lastModified': DateTime.now().toIso8601String(),
+        });
+      });
+    } catch (e) {
+      throw Exception('Failed to add song to queue: $e');
+    }
+  }
 }
