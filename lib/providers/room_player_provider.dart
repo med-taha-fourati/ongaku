@@ -108,8 +108,12 @@ class RoomPlayerNotifier extends StateNotifier<RoomPlayerState> {
   }
 
   void _listenToRoomUpdates() {
-    _roomSubscription = _roomRepository.getRoomStream(roomId).listen((room) {
-      if (room == null) return;
+    _roomSubscription = _roomRepository.getRoomStream(roomId).listen((room) async {
+      if (room == null) {
+        // Room was deleted
+        await state.player.stop();
+        return;
+      }
 
       final wasHost = state.isHost;
       final isHost = room.hostUid == userId;

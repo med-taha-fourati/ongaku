@@ -179,6 +179,39 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     final firebaseUser = ref.watch(authStateProvider).value;
     final playerState = ref.watch(roomPlayerProvider(widget.roomId));
 
+    // Listen for room deletion (Host left)
+    ref.listen<AsyncValue<RoomModel?>>(roomStreamProvider(widget.roomId), (previous, next) {
+      next.whenData((room) {
+        if (room == null) {
+          // Room deleted
+          if (mounted) {
+             // Clear active room state for guest
+             ref.read(activeRoomIdProvider.notifier).state = null;
+             
+             showDialog(
+               context: context,
+               barrierDismissible: false,
+               builder: (ctx) => AlertDialog(
+                 title: const Text('Room Ended'),
+                 content: const Text('The host has ended the room.'),
+                 actions: [
+                   TextButton(
+                     onPressed: () {
+                       Navigator.of(ctx).pop(); // Close dialog
+                       if (Navigator.of(context).canPop()) {
+                         Navigator.of(context).pop(); // Exit screen
+                       }
+                     },
+                     child: const Text('OK'),
+                   ),
+                 ],
+               ),
+             );
+          }
+        }
+      });
+    });
+
     final currentUser = firestoreUser ?? 
         (firebaseUser != null 
             ? UserModel(
