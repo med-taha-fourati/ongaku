@@ -19,6 +19,20 @@ class ListeningSession {
     this.skipped = false,
   });
 
+
+  factory ListeningSession.fromJson(Map<String, dynamic> json) {
+    return ListeningSession(
+      userId: json['userId'] as String,
+      songId: json['songId'] as String,
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: json['endTime'] != null ? DateTime.parse(json['endTime'] as String) : null,
+      durationListened: json['durationListened'] as int,
+      completed: json['completed'] as bool? ?? false,
+      liked: json['liked'] as bool? ?? false,
+      skipped: json['skipped'] as bool? ?? false,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
