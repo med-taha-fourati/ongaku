@@ -2,6 +2,9 @@
 
 A music player
 
+# Preview
+<img width="180" height="400" alt="Screenshot_1766930338" src="https://github.com/user-attachments/assets/0732cbbd-5773-4023-a094-1c267b9d74ed" />
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
