@@ -97,7 +97,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       }
 
       final song = SongModel(
-        id: '', // Will be set by Firestore
+        id: '',
         title: title,
         artist: artist,
         genre: genre,
@@ -105,8 +105,8 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         coverUrl: coverUrl,
         uploadedBy: user.uid,
         uploadedAt: DateTime.now(),
-        status: SongStatus.pending,
-        duration: 0, // Will be updated after upload
+        status: user.isAdmin ? SongStatus.approved : SongStatus.pending,
+        duration: 0, 
       );
 
       print('Creating song with data: ${song.toJson()}');
