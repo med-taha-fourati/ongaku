@@ -3,22 +3,37 @@ import 'package:http/http.dart' as http;
 import '../models/radio_station.dart';
 
 class RadioRepository {
-  static const String _baseUrl = 'https://de1.api.radio-browser.info/json';
+  // if any of these fail, we're fucked
+  static const List<String> _baseUrls = [
+    'https://de1.api.radio-browser.info/json'
+    'https://de2.api.radio-browser.info/json',
+    'https://all.api.radio-browser.info/json',
+  ];
+
+  Future<dynamic> _fetchWithFallback(String endpoint) async {
+    for (final baseUrl in _baseUrls) {
+      try {
+        final uri = Uri.parse('$baseUrl$endpoint');
+        final response = await http.get(uri).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          return json.decode(response.body);
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    throw Exception('All radio API mirrors failed');
+  }
 
   Future<List<RadioStation>> searchStations(String query) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/stations/byname/$query?limit=20'),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data
-            .map((json) => RadioStation.fromJson(json))
-            .where((station) => station.streamUrl.isNotEmpty)
-            .toList();
-      }
-      return [];
+      final List<dynamic> data = await _fetchWithFallback('/stations/byname/$query?limit=20');
+      
+      return data
+          .map((json) => RadioStation.fromJson(json))
+          .where((station) => station.streamUrl.isNotEmpty)
+          .toList();
     } catch (e) {
       return [];
     }
@@ -26,18 +41,12 @@ class RadioRepository {
 
   Future<List<RadioStation>> getTopStations() async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/stations/topvote/20'),
-      ).timeout(const Duration(seconds: 10));
+      final List<dynamic> data = await _fetchWithFallback('/stations/topvote/20');
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data
-            .map((json) => RadioStation.fromJson(json))
-            .where((station) => station.streamUrl.isNotEmpty)
-            .toList();
-      }
-      return [];
+      return data
+          .map((json) => RadioStation.fromJson(json))
+          .where((station) => station.streamUrl.isNotEmpty)
+          .toList();
     } catch (e) {
       return [];
     }
