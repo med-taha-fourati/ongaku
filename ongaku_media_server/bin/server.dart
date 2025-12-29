@@ -11,7 +11,6 @@ import 'package:shelf_static/shelf_static.dart';
 import 'package:mime/mime.dart';
 
 // Configuration
-const _hostname = '192.168.1.22';
 const _port = 8080;
 final _uploadsDir = Directory('uploads');
 
@@ -80,7 +79,6 @@ void main(List<String> args) async {
   final staticHandler = createStaticHandler(_uploadsDir.path);
   app.mount('/files/', staticHandler);
 
-  // Start the server on all interfaces
   final server = await io.serve(handler, InternetAddress.anyIPv4, _port);
   print('Server running on http://${server.address.host}:${server.port}');
   print('Connect using your local IP (e.g. 192.168.1.x)');

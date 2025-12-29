@@ -8,15 +8,21 @@ import 'package:path/path.dart' as path;
 
 class SongRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  // Update this to your server's address and port
-  static const String _serverBaseUrl = 'http://192.168.1.22:8080';
-  
-  // Local cache directory for storing downloaded files
+  /*
+   * TODO:
+   *    - if you're hosting this from your own computer and you're emulating,
+   *    consider changing this to your computer's ip address
+   *
+   */
+  static const String _serverBaseUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'http://localhost:8080'
+  );
+
   Future<Directory> get _localDir async {
     return await getApplicationDocumentsDirectory();
   }
-  
-  // Headers for HTTP requests
+
   final Map<String, String> _headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
