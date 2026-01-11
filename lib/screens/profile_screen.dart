@@ -14,7 +14,6 @@ class ProfileScreen extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
 
     return Scaffold(
-      // Removed Edit FAB for now as requested focus is stats
       body: SafeArea(
         child: userAsync.when(
           data: (user) {
@@ -53,8 +52,6 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-// --- Sub-Widgets ---
-
 class _ProfileHeader extends StatelessWidget {
   final UserModel user;
 
@@ -67,7 +64,6 @@ class _ProfileHeader extends StatelessWidget {
 
     return Row(
       children: [
-        // Avatar with fallback
         Container(
           width: 80,
           height: 80,
@@ -90,7 +86,6 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 20),
-        // User Info
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -34,8 +34,6 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
   final RoomLifecycleService _lifecycleService = RoomLifecycleService(RoomRepository());
   // WebRTCService is now managed by provider
   bool _isConnecting = true;
-  bool _isMuted = false;
-  bool _isDeafened = false;
 
   RoomRepository? _roomRepository;
   String? _currentUid;
@@ -118,7 +116,12 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
       
       if (mounted) setState(() => _isConnecting = false);
       
-      // If host, start foreground service
+      final currentParticipants = ref.read(participantsProvider(widget.roomId)).valueOrNull;
+      if (currentParticipants != null) {
+        final uids = currentParticipants.map((p) => p.uid).toList();
+        await webRTC.connectToParticipants(uids);
+      }
+
       final room = await repo.getRoom(widget.roomId);
       if (room?.hostUid == user.uid) {
         await ForegroundServiceManager.startService(
@@ -179,13 +182,24 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     final firebaseUser = ref.watch(authStateProvider).value;
     final playerState = ref.watch(roomPlayerProvider(widget.roomId));
 
+    ref.listen<AsyncValue<List<ParticipantModel>>>(
+      participantsProvider(widget.roomId),
+      (previous, next) {
+        next.whenData((participants) async {
+          final webRTC = ref.read(webRTCServiceProvider(widget.roomId));
+          if (webRTC.isInitialized) {
+             final uids = participants.map((p) => p.uid).toList();
+             await webRTC.connectToParticipants(uids);
+          }
+        });
+      },
+    );
+
     // Listen for room deletion (Host left)
     ref.listen<AsyncValue<RoomModel?>>(roomStreamProvider(widget.roomId), (previous, next) {
       next.whenData((room) {
         if (room == null) {
-          // Room deleted
           if (mounted) {
-             // Clear active room state for guest
              ref.read(activeRoomIdProvider.notifier).state = null;
              
              showDialog(
@@ -197,9 +211,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
                  actions: [
                    TextButton(
                      onPressed: () {
-                       Navigator.of(ctx).pop(); // Close dialog
+                       Navigator.of(ctx).pop(); 
                        if (Navigator.of(context).canPop()) {
-                         Navigator.of(context).pop(); // Exit screen
+                         Navigator.of(context).pop(); 
                        }
                      },
                      child: const Text('OK'),
@@ -243,24 +257,40 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
               ],
             ),
             actions: [
+              // Mute Button - use WebRTCService state
               IconButton(
-                icon: Icon(_isMuted ? Icons.mic_off : Icons.mic),
-                color: _isMuted ? Colors.red : null,
-                tooltip: _isMuted ? 'Unmute' : 'Mute',
+                icon: Icon(
+                  ref.read(webRTCServiceProvider(widget.roomId)).isMuted 
+                      ? Icons.mic_off 
+                      : Icons.mic
+                ),
+                color: ref.read(webRTCServiceProvider(widget.roomId)).isMuted 
+                    ? Colors.red 
+                    : null,
+                tooltip: ref.read(webRTCServiceProvider(widget.roomId)).isMuted 
+                    ? 'Unmute' 
+                    : 'Mute',
                 onPressed: () {
                   setState(() {
-                    _isMuted = !_isMuted;
                     ref.read(webRTCServiceProvider(widget.roomId)).toggleMute();
                   });
                 },
               ),
+              // Deafen Button - use WebRTCService state  
               IconButton(
-                icon: Icon(_isDeafened ? Icons.headset_off : Icons.headset),
-                color: _isDeafened ? Colors.red : null,
-                tooltip: _isDeafened ? 'Undeafen' : 'Deafen',
+                icon: Icon(
+                  ref.read(webRTCServiceProvider(widget.roomId)).isDeafened
+                      ? Icons.headset_off
+                      : Icons.headset
+                ),
+                color: ref.read(webRTCServiceProvider(widget.roomId)).isDeafened
+                    ? Colors.orange
+                    : null,
+                tooltip: ref.read(webRTCServiceProvider(widget.roomId)).isDeafened
+                    ? 'Undeafen'
+                    : 'Deafen',
                 onPressed: () {
                   setState(() {
-                    _isDeafened = !_isDeafened;
                     ref.read(webRTCServiceProvider(widget.roomId)).toggleDeafen();
                   });
                 },

@@ -12,6 +12,7 @@ import 'package:mime/mime.dart';
 
 // Configuration
 const _port = 8080;
+const _ipAdress = "192.168.1.22";
 final _uploadsDir = Directory('uploads');
 
 Future<void> _ensureUploadsDirectory() async {
@@ -79,7 +80,7 @@ void main(List<String> args) async {
   final staticHandler = createStaticHandler(_uploadsDir.path);
   app.mount('/files/', staticHandler);
 
-  final server = await io.serve(handler, InternetAddress.anyIPv4, _port);
+  final server = await io.serve(handler, _ipAdress.isEmpty ? InternetAddress.anyIPv4 : InternetAddress(_ipAdress), _port);
   print('Server running on http://${server.address.host}:${server.port}');
   print('Connect using your local IP (e.g. 192.168.1.x)');
 }

@@ -10,6 +10,7 @@ class WebRTCService {
 
   final Map<String, RTCPeerConnection> _peerConnections = {};
   final Map<String, StreamSubscription> _signalingSubscriptions = {};
+  final Map<String, MediaStream> _remoteStreams = {};
   
   MediaStream? _localStream;
   final _remoteStreamsController = StreamController<Map<String, MediaStream>>.broadcast();
@@ -47,6 +48,16 @@ class WebRTCService {
       _startAudioLevelMonitoring();
       
       _isInitialized = true;
+      
+      // Force audio to speakerphone (critical for social music room)
+      // Without this, audio defaults to earpiece on many devices
+      try {
+        await Helper.setSpeakerphoneOn(true);
+        debugPrint('WebRTC: Speakerphone enabled');
+      } catch (e) {
+        debugPrint('WebRTC: Failed to enable speakerphone: $e');
+      }
+
       debugPrint('WebRTC: Initialized with local stream');
     } catch (e) {
       debugPrint('WebRTC: Failed to initialize: $e');
@@ -91,9 +102,17 @@ class WebRTCService {
       _peerConnections[remoteUid] = pc;
 
       if (_localStream != null) {
-        _localStream!.getTracks().forEach((track) {
-          pc.addTrack(track, _localStream!);
-        });
+        for (var track in _localStream!.getTracks()) {
+          if (track.kind == 'audio') {
+            await pc.addTransceiver(
+              track: track,
+              init: RTCRtpTransceiverInit(
+                direction: TransceiverDirection.SendRecv,
+                streams: [_localStream!],
+              ),
+            );
+          }
+        }
       }
 
       pc.onIceCandidate = (RTCIceCandidate candidate) {
@@ -101,14 +120,20 @@ class WebRTCService {
       };
 
       pc.onTrack = (RTCTrackEvent event) {
+        debugPrint('WebRTC: onTrack fired for $remoteUid');
         if (event.streams.isNotEmpty) {
-          debugPrint('WebRTC: Received remote stream from $remoteUid');
+          debugPrint('WebRTC: Received ${event.streams.length} streams');
           _updateRemoteStream(remoteUid, event.streams[0]);
+        } else {
+          debugPrint('WebRTC: onTrack but no streams');
         }
       };
 
       pc.onIceConnectionState = (RTCIceConnectionState state) {
-        debugPrint('WebRTC: ICE connection state with $remoteUid: $state');
+        debugPrint('WebRTC: ICE state with $remoteUid: $state');
+        if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
+          debugPrint('WebRTC: Successfully connected to $remoteUid');
+        }
         if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
             state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
           _handleConnectionFailure(remoteUid);
@@ -122,16 +147,21 @@ class WebRTCService {
 
       _listenForIceCandidates(remoteUid, pc);
 
-      debugPrint('WebRTC: Peer connection created for $remoteUid (offerer: $isOfferer)');
+      debugPrint('WebRTC: Peer connection setup complete for $remoteUid (offerer: $isOfferer)');
     } catch (e) {
-      debugPrint('WebRTC: Failed to create peer connection for $remoteUid: $e');
+      debugPrint('WebRTC: Error creating peer connection: $e');
       rethrow;
     }
   }
 
   Future<void> _createAndSendOffer(String remoteUid, RTCPeerConnection pc) async {
     try {
-      final offer = await pc.createOffer();
+      final constraints = {
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': false,
+      };
+      
+      final offer = await pc.createOffer(constraints);
       await pc.setLocalDescription(offer);
 
       await _firestore
@@ -219,9 +249,17 @@ class WebRTCService {
     _peerConnections[remoteUid] = pc;
 
     if (_localStream != null) {
-      _localStream!.getTracks().forEach((track) {
-        pc.addTrack(track, _localStream!);
-      });
+      for (var track in _localStream!.getTracks()) {
+        if (track.kind == 'audio') {
+          await pc.addTransceiver(
+            track: track,
+            init: RTCRtpTransceiverInit(
+              direction: TransceiverDirection.SendRecv,
+              streams: [_localStream!],
+            ),
+          );
+        }
+      }
     }
 
     pc.onIceCandidate = (RTCIceCandidate candidate) {
@@ -230,7 +268,6 @@ class WebRTCService {
 
     pc.onTrack = (RTCTrackEvent event) {
       if (event.streams.isNotEmpty) {
-        debugPrint('WebRTC: Received remote stream from $remoteUid');
         _updateRemoteStream(remoteUid, event.streams[0]);
       }
     };
@@ -336,13 +373,22 @@ class WebRTCService {
   }
 
   void _updateRemoteStream(String remoteUid, MediaStream stream) {
-    final currentStreams = <String, MediaStream>{};
-    _peerConnections.forEach((uid, pc) {
-      if (uid == remoteUid) {
-        currentStreams[uid] = stream;
-      }
-    });
-    _remoteStreamsController.add(currentStreams);
+    _remoteStreams[remoteUid] = stream;
+    
+    debugPrint('WebRTC: Remote stream added from $remoteUid');
+    debugPrint('WebRTC: Stream has ${stream.getAudioTracks().length} audio tracks');
+    for (var track in stream.getAudioTracks()) {
+      debugPrint('WebRTC: Track ${track.id} enabled=${track.enabled}');
+    }
+    
+    if (_isDeafened) {
+      stream.getAudioTracks().forEach((track) {
+        track.enabled = false;
+      });
+    }
+    
+    _remoteStreamsController.add(Map<String, MediaStream>.from(_remoteStreams));
+    debugPrint('WebRTC: Total remote streams: ${_remoteStreams.length}');
   }
 
   void _handleConnectionFailure(String remoteUid) {
@@ -371,18 +417,20 @@ class WebRTCService {
     }
   }
 
-  Future<void> toggleDeafen() async {
+  void toggleDeafen() {
     _isDeafened = !_isDeafened;
-    // Iterate over all remote renderers/streams if possible to mute them
-    // In mesh structure, we have multiple peer connections.
     
-    for (var pc in _peerConnections.values) {
-       final receivers = await pc.getReceivers();
-       for (var receiver in receivers) {
-         if (receiver.track?.kind == 'audio') {
-           receiver.track?.enabled = !_isDeafened;
-         }
-       }
+    // Deafening disables ALL incoming audio playback
+    // This does NOT affect outgoing tracks - others still hear you
+    _applyDeafenState();
+  }
+
+  void _applyDeafenState() {
+    // Apply to all existing remote streams
+    for (var stream in _remoteStreams.values) {
+      stream.getAudioTracks().forEach((track) {
+        track.enabled = !_isDeafened;
+      });
     }
   }
 
@@ -432,8 +480,10 @@ class WebRTCService {
     final pc = _peerConnections.remove(remoteUid);
     if (pc != null) {
       await pc.close();
-      debugPrint('WebRTC: Disconnected from $remoteUid');
     }
+    
+    _remoteStreams.remove(remoteUid);
+    _remoteStreamsController.add(Map<String, MediaStream>.from(_remoteStreams));
 
     _signalingSubscriptions[remoteUid]?.cancel();
     _signalingSubscriptions.remove(remoteUid);
@@ -456,6 +506,8 @@ class WebRTCService {
     }
     _signalingSubscriptions.clear();
 
+    _remoteStreams.clear();
+
     await _localStream?.dispose();
     _localStream = null;
 
@@ -463,7 +515,6 @@ class WebRTCService {
     await _audioLevelsController.close();
 
     _isInitialized = false;
-    debugPrint('WebRTC: Disposed');
   }
 
   bool get isInitialized => _isInitialized;

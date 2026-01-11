@@ -16,7 +16,7 @@ class SongRepository {
    */
   static const String _serverBaseUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://localhost:8080'
+    defaultValue: 'http://192.168.1.22:8080'
   );
 
   Future<Directory> get _localDir async {

@@ -56,19 +56,32 @@ class _ParticipantTile extends StatelessWidget {
         Stack(
           alignment: Alignment.center,
           children: [
-            // Speaking Indicator Ripple
-              if (participant.isSpeaking && isConnected)
-                Container(
-                  width: 76, // Slightly larger
-                  height: 76,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.greenAccent, // Explicit green for speaking
-                      width: 4, // Thicker border
+            // Speaking Indicator with Pulsing Animation
+            if (participant.isSpeaking && isConnected)
+              TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 600),
+                tween: Tween<double>(begin: 0.8, end: 1.0),
+                curve: Curves.easeInOut,
+                onEnd: () {
+                  // Loop animation
+                },
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.greenAccent.withOpacity(0.9),
+                          width: 4,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
+              ),
             
             // Avatar
             Container(
