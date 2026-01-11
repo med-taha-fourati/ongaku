@@ -14,5 +14,5 @@ WORKDIR /app
 COPY --from=build /app/bin/server /app/server
 
 EXPOSE 8080
-
+VOLUME ["/app/uploads"]
 CMD ["./server"]
