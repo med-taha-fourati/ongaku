@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/radio_provider.dart';
+import '../providers/favorites_provider.dart';
+import '../widgets/full_player_screen.dart';
 import '../providers/player_provider.dart';
 import '../repositories/radio_repository.dart';
 import '../models/radio_station.dart';
@@ -92,6 +94,8 @@ class _RadioTabState extends ConsumerState<RadioTab> {
       itemCount: stations.length,
       itemBuilder: (context, index) {
         final station = stations[index];
+        final isFavorite = ref.watch(favoritesProvider).contains(station.id);
+        
         return ListTile(
           leading: CircleAvatar(
             backgroundImage: station.imageUrl != null
@@ -103,15 +107,35 @@ class _RadioTabState extends ConsumerState<RadioTab> {
           ),
           title: Text(station.name),
           subtitle: Text('${station.genre} • ${station.country}'),
-          trailing: const Icon(Icons.play_arrow),
+          trailing: SizedBox(
+             width: 100,
+             child: Row(
+               mainAxisAlignment: MainAxisAlignment.end,
+               children: [
+                 IconButton(
+                    icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+                    color: isFavorite ? Colors.red : null,
+                    onPressed: () {
+                       ref.read(favoritesProvider.notifier).toggleFavorite(station.id);
+                    },
+                 ),
+                 const Icon(Icons.play_arrow),
+               ],
+             ),
+          ),
           onTap: () async {
             try {
-              await ref.read(playerProvider.notifier).playRadio(station);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Playing ${station.name}')),
-                );
-              }
+              ref.read(playerProvider.notifier).playRadio(station);
+               Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FullPlayerScreen(
+                        station: station,
+                        heroTag: 'radio-${station.id}',
+                        playbackSource: PlaybackSource.radio,
+                      ),
+                    ),
+               );
+
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(

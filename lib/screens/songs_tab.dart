@@ -6,8 +6,6 @@ import '../providers/player_provider.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/radio_provider.dart';
 import '../models/song_model.dart';
-import '../repositories/analytics_repository.dart';
-import '../widgets/song_tile.dart';
 import '../widgets/full_player_screen.dart';
 import 'recommendations_screen.dart';
 
@@ -51,55 +49,41 @@ class _SongsTabState extends ConsumerState<SongsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Search songs...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search songs...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             ),
           ),
-          const TabBar(
-            tabs: [
-              Tab(text: 'All Songs'),
-              Tab(text: 'Favorites'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _AllSongsList(
-                  searchQuery: _searchQuery, 
-                  filterSongs: _filterSongs,
-                ),
-                _FavoritesList(
-                  searchQuery: _searchQuery,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        
+        // Removed TabBar and _FavoritesList
+        Expanded(
+           child: _AllSongsList(
+             searchQuery: _searchQuery, 
+             filterSongs: _filterSongs,
+           ),
+        ),
+      ],
     );
   }
 }
@@ -302,44 +286,6 @@ class _AllSongsList extends ConsumerWidget {
   }
 }
 
-class _FavoritesList extends ConsumerWidget {
-  final String searchQuery;
-  
-  const _FavoritesList({required this.searchQuery});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final favoriteIds = ref.watch(favoritesProvider);
-    final allSongsAsync = ref.watch(approvedSongsProvider);
-
-    return allSongsAsync.when(
-      data: (allSongs) {
-        final favoriteSongs = allSongs
-            .where((s) => favoriteIds.contains(s.id))
-            .where((s) {
-              if (searchQuery.isEmpty) return true;
-              return s.title.toLowerCase().contains(searchQuery) ||
-                     s.artist.toLowerCase().contains(searchQuery);
-            })
-            .toList();
-
-        if (favoriteSongs.isEmpty) {
-          return const Center(child: Text('No favorites yet'));
-        }
-
-        return ListView.builder(
-          itemCount: favoriteSongs.length,
-          itemBuilder: (context, index) {
-            final song = favoriteSongs[index];
-            return _SongListItem(song: song, playlist: favoriteSongs);
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Error loading songs')),
-    );
-  }
-}
 
 class _SongListItem extends ConsumerWidget {
   final SongModel song;

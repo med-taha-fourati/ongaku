@@ -93,7 +93,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     // Note: We need to move logic from _init() to a reusable method
     _attachListeners(newPlayer);
 
-    state = state.copyWith(
+    state = PlayerState(
       player: newPlayer,
       isPlaying: false,
       currentSong: null,

@@ -7,6 +7,7 @@ import 'radio_tab.dart';
 import 'upload_screen.dart';
 import 'rooms_tab.dart';
 import 'rooms_tab.dart';
+import 'favorites_screen.dart';
 
 
 import 'player_bottom_sheet.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const RadioTab(),
       const RoomsTab(),
       const UploadScreen(),
+      const FavoritesScreen(),
       const ProfileScreen(), // Add Profile Tab
     ];
 
@@ -80,6 +82,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const NavigationDestination(
                 icon: Icon(Icons.upload),
                 label: 'Upload',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.star),
+                label: 'Favorites'
               ),
               const NavigationDestination(
                 icon: Icon(Icons.person),
