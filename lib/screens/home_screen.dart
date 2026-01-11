@@ -6,7 +6,8 @@ import 'songs_tab.dart';
 import 'radio_tab.dart';
 import 'upload_screen.dart';
 import 'rooms_tab.dart';
-import 'admin_tab.dart';
+import 'rooms_tab.dart';
+
 
 import 'player_bottom_sheet.dart';
 import 'profile_screen.dart'; // Import ProfileScreen
@@ -34,7 +35,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const RoomsTab(),
       const UploadScreen(),
       const ProfileScreen(), // Add Profile Tab
-      if (currentUser.value?.isAdmin ?? false) const AdminTab(),
     ];
 
     return Scaffold(
@@ -85,11 +85,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icon(Icons.person),
                 label: 'Profile',
               ),
-              if (currentUser.value?.isAdmin ?? false)
-                const NavigationDestination(
-                  icon: Icon(Icons.admin_panel_settings),
-                  label: 'Admin',
-                ),
             ],
           ),
         ],

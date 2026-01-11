@@ -261,7 +261,6 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
               ],
             ),
             actions: [
-              // Mute Button - use WebRTCService state
               IconButton(
                 icon: Icon(
                   ref.read(webRTCServiceProvider(widget.roomId)).isMuted 

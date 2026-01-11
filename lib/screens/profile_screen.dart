@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/statistics_provider.dart';
 import 'top_tracks_screen.dart';
+import 'admin_tab.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -13,22 +14,46 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
 
-    return Scaffold(
-      body: SafeArea(
-        child: userAsync.when(
-          data: (user) {
-            if (user == null) {
-              return const Center(child: Text('User not found'));
-            }
-            return _buildContent(context, user);
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(
-            child: Text(
-              'Error loading profile',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+    return userAsync.when(
+      data: (user) {
+        if (user == null) return const Center(child: Text('User not found'));
+
+        final isAdmin = user.isAdmin;
+
+        if (!isAdmin) {
+          return _buildContent(context, user);
+        }
+
+        return DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: const TabBar(
+                  tabs: [
+                    Tab(text: 'User Info'),
+                    Tab(text: 'Admin'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildContent(context, user),
+                    const AdminTab(),
+                  ],
+                ),
+              ),
+            ],
           ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Text(
+          'Error loading profile',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       ),
     );
