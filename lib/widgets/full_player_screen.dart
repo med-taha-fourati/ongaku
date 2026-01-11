@@ -156,9 +156,20 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
     final isRadio = playbackSource == PlaybackSource.radio ||
         (playbackSource == null && station != null && song == null);
 
-    final artworkUrl = isRadio ? station?.imageUrl : song?.coverUrl;
-    final title = song?.title ?? station?.name ?? '';
-    final subtitle = song?.artist ?? station?.country ?? '';
+    // Precise metadata extraction based on source
+    String title = '';
+    String subtitle = '';
+    String? artworkUrl;
+
+    if (playbackSource == PlaybackSource.radio && station != null) {
+      title = station.name;
+      subtitle = station.country;
+      artworkUrl = station.imageUrl;
+    } else if (playbackSource == PlaybackSource.song && song != null) {
+      title = song.title;
+      subtitle = song.artist;
+      artworkUrl = song.coverUrl;
+    }
 
     final bgGradient = LinearGradient(
       colors: [
@@ -182,9 +193,12 @@ class _FullPlayerScreenState extends ConsumerState<FullPlayerScreen>
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_down),
-                      onPressed: () => Navigator.of(context).pop(),
-                      tooltip: 'Close player',
+                      icon: const Icon(Icons.keyboard_arrow_down), // Changed back to arrow down to imply minimize
+                      onPressed: () {
+                         // Minimize (keep playing)
+                         Navigator.of(context).pop();
+                      },
+                      tooltip: 'Minimize',
                     ),
                     Expanded(child: Container()),
                     IconButton(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/radio_station.dart';
 import '../providers/player_provider.dart';
+import '../widgets/full_player_screen.dart';
 import '../models/song_model.dart';
-import '../widgets/mini_full_player.dart';
+import '../models/radio_station.dart';
 
 class PlayerBottomSheet extends ConsumerWidget {
   const PlayerBottomSheet({super.key});
@@ -11,118 +11,122 @@ class PlayerBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playerProvider);
-
     final song = state.currentSong;
     final station = state.currentStation;
-    final playbackSource = state.playbackSource;
 
-    if (song == null && station == null) {
-      return const SizedBox.shrink();
+    // Don't show if nothing is playing or selected (unless paused but active)
+    if (song == null && station == null) return const SizedBox.shrink();
+
+    // Precise metadata extraction based on source
+    String title = '';
+    String subtitle = '';
+    String? imageUrl;
+
+    if (state.playbackSource == PlaybackSource.radio && station != null) {
+      title = station.name;
+      subtitle = station.country;
+      imageUrl = station.imageUrl;
+    } else if (state.playbackSource == PlaybackSource.song && song != null) {
+      title = song.title;
+      subtitle = song.artist;
+      imageUrl = song.coverUrl;
+    } else {
+       // Fallback (shouldn't happen if checking source correctly)
+       title = song?.title ?? station?.name ?? '';
+       subtitle = song?.artist ?? station?.country ?? '';
+       imageUrl = song?.coverUrl ?? station?.imageUrl;
     }
 
-    final bool isRadio = playbackSource == PlaybackSource.radio ||
-        (playbackSource == null && station != null && song == null);
-
-    final String title = playbackSource == PlaybackSource.radio
-        ? (station?.name ?? '')
-        : (song?.title ?? '');
-
-    final String subtitle = playbackSource == PlaybackSource.radio
-        ? (station?.country ?? '')
-        : (song?.artist ?? '');
-
-    final String? imageUrl = playbackSource == PlaybackSource.radio
-        ? station?.imageUrl
-        : song?.coverUrl;
-
-    final heroTag = 'artwork-${song?.id ?? station?.id ?? 'none'}';
-
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => FullPlayerScreen(
               song: song,
               station: station,
-              playbackSource: playbackSource,
-              heroTag: heroTag,
+              playbackSource: state.playbackSource,
+              heroTag: 'mini-player-hero',
             ),
           ),
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        height: 64,
+        margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          boxShadow: const [
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 4,
-              offset: Offset(0, -2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                  ),
-                  child: imageUrl != null && imageUrl.isNotEmpty
-                      ? Hero(
-                          tag: heroTag,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  const Icon(Icons.music_note),
-                            ),
+            // Artwork
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Hero(
+                tag: 'mini-player-hero',
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: imageUrl != null
+                      ? Image.network(
+                          imageUrl,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 48,
+                            height: 48,
+                            color: Colors.grey,
+                            child: const Icon(Icons.music_note),
                           ),
                         )
-                      : Hero(
-                          tag: heroTag,
+                      : Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey,
                           child: const Icon(Icons.music_note),
                         ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (subtitle.isNotEmpty)
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            
+            // Title & Artist
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                    ],
                   ),
-                ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+
+            // Controls
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Play/Pause
                 IconButton(
-                  icon: Icon(
-                    state.isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_filled,
-                  ),
-                  iconSize: 48,
+                  icon: Icon(state.isPlaying ? Icons.pause : Icons.play_arrow),
                   onPressed: () {
                     if (state.isPlaying) {
                       ref.read(playerProvider.notifier).pause();
@@ -131,111 +135,20 @@ class PlayerBottomSheet extends ConsumerWidget {
                     }
                   },
                 ),
+                
+                // Stop (X) - Ends Session
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Stop Playback',
+                  onPressed: () {
+                    ref.read(playerProvider.notifier).stop();
+                  },
+                ),
               ],
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: isRadio
-                  ? (station != null
-                      ? _buildRadioDetails(context, station)
-                      : const SizedBox.shrink())
-                  : _buildSongProgress(context, state),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-String _formatDuration(Duration duration) {
-  String twoDigits(int n) => n.toString().padLeft(2, '0');
-  final hours = duration.inHours;
-  final minutes = twoDigits(duration.inMinutes.remainder(60));
-  final seconds = twoDigits(duration.inSeconds.remainder(60));
-  if (hours > 0) {
-    return '$hours:$minutes:$seconds';
-  }
-  return '$minutes:$seconds';
-}
-
-Widget _buildRadioDetails(BuildContext context, RadioStation station) {
-  return Padding(
-    padding: const EdgeInsets.only(top: 12.0),
-    child: Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildDetailItem(Icons.public, station.country),
-            _buildDetailItem(Icons.category, station.genre),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "Streaming live radio",
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: Colors.grey),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildDetailItem(IconData icon, String text) {
-  return Row(
-    children: [
-      Icon(icon, size: 18, color: Colors.grey),
-      const SizedBox(width: 4),
-      Text(
-        text,
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
-      ),
-    ],
-  );
-}
-
-Widget _buildSongProgress(BuildContext context, PlayerState state) {
-  return KeyedSubtree(
-    key: ValueKey('song-progress-${state.currentSong?.id ?? 'none'}'),
-    child: StreamBuilder<Duration>(
-      stream: state.player.positionStream,
-      builder: (context, snapshot) {
-        final position = snapshot.data ?? Duration.zero;
-        final duration = state.player.duration ?? Duration.zero;
-
-        final safePosition = position.inMilliseconds.toDouble();
-        final safeDuration = duration.inMilliseconds.toDouble();
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Slider(
-              value: safeDuration > 0
-                  ? safePosition.clamp(0.0, safeDuration).toDouble()
-                  : 0.0,
-              max: safeDuration > 0 ? safeDuration : 1.0,
-              onChanged: safeDuration <= 0
-                  ? null
-                  : (value) {
-                      state.player.seek(Duration(milliseconds: value.toInt()));
-                    },
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(_formatDuration(position)),
-                  Text(_formatDuration(duration)),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    ),
-  );
 }

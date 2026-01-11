@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/song_model.dart';
 import 'package:path/path.dart' as path;
+import '../constants.dart';
 
 class SongRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,10 +15,8 @@ class SongRepository {
    *    consider changing this to your computer's ip address
    *
    */
-  static const String _serverBaseUrl = String.fromEnvironment(
-    'BACKEND_URL',
-    defaultValue: 'http://192.168.1.22:8080'
-  );
+
+  static String get _serverBaseUrl => AppConstants.mediaServerUrl;
 
   Future<Directory> get _localDir async {
     return await getApplicationDocumentsDirectory();
