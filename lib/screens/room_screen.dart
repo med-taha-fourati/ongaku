@@ -185,17 +185,21 @@ class _RoomScreenState extends ConsumerState<RoomScreen> with WidgetsBindingObse
     ref.listen<AsyncValue<List<ParticipantModel>>>(
       participantsProvider(widget.roomId),
       (previous, next) {
-        next.whenData((participants) async {
-          final webRTC = ref.read(webRTCServiceProvider(widget.roomId));
-          if (webRTC.isInitialized) {
-             final uids = participants.map((p) => p.uid).toList();
-             await webRTC.connectToParticipants(uids);
-          }
-        });
+        final prevUids = previous?.valueOrNull?.map((p) => p.uid).toSet() ?? {};
+        final nextUids = next.valueOrNull?.map((p) => p.uid).toSet() ?? {};
+        
+        if (prevUids.toString() != nextUids.toString()) {
+          next.whenData((participants) async {
+            final webRTC = ref.read(webRTCServiceProvider(widget.roomId));
+            if (webRTC.isInitialized) {
+               final uids = participants.map((p) => p.uid).toList();
+               await webRTC.connectToParticipants(uids);
+            }
+          });
+        }
       },
     );
 
-    // Listen for room deletion (Host left)
     ref.listen<AsyncValue<RoomModel?>>(roomStreamProvider(widget.roomId), (previous, next) {
       next.whenData((room) {
         if (room == null) {

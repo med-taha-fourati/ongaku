@@ -70,6 +70,20 @@ class WebRTCService {
       throw Exception('WebRTC not initialized');
     }
 
+    if (_localStream == null || _localStream!.getAudioTracks().isEmpty) {
+      debugPrint('WebRTC: No local audio track available');
+      return;
+    }
+
+    final currentPeerIds = _peerConnections.keys.toSet();
+    final targetPeerIds = participantUids.where((uid) => uid != localUid).toSet();
+    final peersToRemove = currentPeerIds.difference(targetPeerIds);
+    
+    for (final remoteUid in peersToRemove) {
+      debugPrint('WebRTC: Disconnecting from removed participant $remoteUid');
+      await disconnectFromParticipant(remoteUid);
+    }
+
     for (final remoteUid in participantUids) {
       if (remoteUid == localUid) continue;
       
@@ -104,6 +118,9 @@ class WebRTCService {
       if (_localStream != null) {
         for (var track in _localStream!.getTracks()) {
           if (track.kind == 'audio') {
+            track.enabled = !_isMuted;
+            debugPrint('WebRTC: Setting track enabled=${!_isMuted} for $remoteUid');
+            
             await pc.addTransceiver(
               track: track,
               init: RTCRtpTransceiverInit(
@@ -251,6 +268,9 @@ class WebRTCService {
     if (_localStream != null) {
       for (var track in _localStream!.getTracks()) {
         if (track.kind == 'audio') {
+          track.enabled = !_isMuted;
+          debugPrint('WebRTC: Setting track enabled=${!_isMuted} (answer)');
+          
           await pc.addTransceiver(
             track: track,
             init: RTCRtpTransceiverInit(
@@ -392,12 +412,8 @@ class WebRTCService {
   }
 
   void _handleConnectionFailure(String remoteUid) {
-    debugPrint('WebRTC: Connection failed with $remoteUid, attempting reconnect');
+    debugPrint('WebRTC: Connection failed with $remoteUid, cleaning up');
     disconnectFromParticipant(remoteUid);
-    
-    Future.delayed(const Duration(seconds: 2), () {
-      _createPeerConnection(remoteUid, isOfferer: localUid.compareTo(remoteUid) < 0);
-    });
   }
 
   bool _isMuted = false;
