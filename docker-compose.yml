@@ -15,9 +15,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BACKEND_URL: ${BACKEND_URL}
     env_file:
       - .env
-    args:
-      - BACKEND_URL=${BACKEND_URL}
     volumes:
       - ./builds:/output

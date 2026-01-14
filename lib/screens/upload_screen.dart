@@ -77,7 +77,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         throw Exception("user is null");
       }
 
-      // Validate required fields
       final title = _titleController.text.trim();
       final artist = _artistController.text.trim();
       final genre = _genreController.text.trim();
