@@ -39,6 +39,8 @@ class AuthRepository {
         firebaseUser = _auth.currentUser;
       } else {
         if (e is FirebaseAuthException) throw _handleAuthException(e);
+
+        // idc anymore
         if (e.toString().contains("PigeonUserDetails") && _auth.currentUser != null) {
            firebaseUser = _auth.currentUser;
         } else {

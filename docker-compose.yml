@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       - ADDRESS=0.0.0.0
       - PORT=8080
@@ -13,7 +15,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - BACKEND_URL=${BACKEND_URL} # Change this to your public IP or domain for hosting
+    env_file:
+      - .env
+    args:
+      - BACKEND_URL=${BACKEND_URL}
     volumes:
       - ./builds:/output

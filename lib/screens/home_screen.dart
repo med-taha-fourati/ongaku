@@ -11,7 +11,7 @@ import 'favorites_screen.dart';
 
 
 import 'player_bottom_sheet.dart';
-import 'profile_screen.dart'; // Import ProfileScreen
+import 'profile_screen.dart';
 import '../providers/player_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -66,28 +66,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           NavigationBar(
             selectedIndex: _currentIndex,
             onDestinationSelected: (index) => setState(() => _currentIndex = index),
-            destinations: [
-              const NavigationDestination(
+            destinations: const [
+              NavigationDestination(
                 icon: Icon(Icons.library_music),
                 label: 'Songs',
               ),
-              const NavigationDestination(
+              NavigationDestination(
                 icon: Icon(Icons.radio),
                 label: 'Radio',
               ),
-              const NavigationDestination(
+              NavigationDestination(
                 icon: Icon(Icons.groups),
                 label: 'Rooms',
               ),
-              const NavigationDestination(
+              NavigationDestination(
                 icon: Icon(Icons.upload),
                 label: 'Upload',
               ),
-              const NavigationDestination(
+              NavigationDestination(
                 icon: Icon(Icons.star),
                 label: 'Favorites'
               ),
-              const NavigationDestination(
+              NavigationDestination(
                 icon: Icon(Icons.person),
                 label: 'Profile',
               ),

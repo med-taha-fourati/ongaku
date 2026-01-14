@@ -10,9 +10,9 @@ import 'package:shelf_multipart/multipart.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:mime/mime.dart';
 
+import 'package:dotenv/dotenv.dart';
+
 // Configuration
-const _port = 8080;
-const _ipAdress = "192.168.1.22";
 final _uploadsDir = Directory('uploads');
 
 Future<void> _ensureUploadsDirectory() async {
@@ -28,6 +28,24 @@ Future<void> _ensureUploadsDirectory() async {
 }
 
 void main(List<String> args) async {
+  // Load .env if it exists
+  if (File('.env').existsSync()) {
+    var env = DotEnv(includePlatformEnvironment: true)..load(); 
+    // We can use env['KEY'] now
+  }
+  
+  // Logic: .env (via filesystem load) -> Environment Variables (Platform) -> Default
+  // standard DotEnv(includePlatformEnvironment: true) merges them.
+  // But to strictly follow "Try .env, then fallback to Env" we can check manually.
+  
+  var env = DotEnv(includePlatformEnvironment: true); 
+  if (File('.env').existsSync()) env.load();
+
+  // Determine IP
+  String ipStr = env['ADDRESS'] ?? Platform.environment['ADDRESS'] ?? '127.0.0.1';
+  // Determine Port
+  int port = int.tryParse(env['PORT'] ?? Platform.environment['PORT'] ?? '') ?? 8080;
+
   await _ensureUploadsDirectory();
 
   final app = Router();
@@ -75,14 +93,19 @@ void main(List<String> args) async {
       .addMiddleware(corsMiddleware)
       .addHandler(app);
 
-  // Serve static files using shelf_static which supports Range requests
-  // This is crucial for media playback (seeking/streaming)
+  // Serve static files
   final staticHandler = createStaticHandler(_uploadsDir.path);
   app.mount('/files/', staticHandler);
 
-  final server = await io.serve(handler, _ipAdress.isEmpty ? InternetAddress.anyIPv4 : InternetAddress(_ipAdress), _port);
-  print('Server running on http://${server.address.host}:${server.port}');
-  print('Connect using your local IP (e.g. 192.168.1.x)');
+  final ip = ipStr == '0.0.0.0' ? InternetAddress.anyIPv4 : InternetAddress(ipStr);
+
+  try {
+    final server = await io.serve(handler, ip, port);
+    print('Server running on http://${server.address.host}:${server.port}');
+  } catch (e) {
+    print('Failed to start server: $e');
+    exit(1);
+  }
 }
 
 Future<Response> _handleFileUpload(Request request, String fileType) async {
