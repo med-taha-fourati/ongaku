@@ -267,27 +267,59 @@ class SongRepository {
         'playCount': FieldValue.increment(1),
       });
     } catch (e) {
-      // Silently fail
     }
   }
 
-  Future<void> incrementLikeCount(String songId) async {
+  Future<List<String>> fetchUserFavorites(String userId) async {
     try {
-      await _firestore.collection('songs').doc(songId).update({
-        'likeCount': FieldValue.increment(1),
-      });
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('favorites')
+          .get();
+      return snapshot.docs.map((doc) => doc.id).toList();
     } catch (e) {
-      // Silently fail
+      return [];
     }
   }
 
-  Future<void> decrementLikeCount(String songId) async {
+  Future<void> addUserFavorite(String userId, String songId) async {
+    final userFavRef = _firestore.collection('users').doc(userId).collection('favorites').doc(songId);
+    final songRef = _firestore.collection('songs').doc(songId);
+
     try {
-      await _firestore.collection('songs').doc(songId).update({
-        'likeCount': FieldValue.increment(-1),
+      await _firestore.runTransaction((transaction) async {
+        final doc = await transaction.get(userFavRef);
+        if (!doc.exists) {
+          transaction.set(userFavRef, {
+            'addedAt': FieldValue.serverTimestamp(),
+          });
+          transaction.update(songRef, {
+            'likeCount': FieldValue.increment(1),
+          });
+        }
       });
     } catch (e) {
-      // Silently fail
+      // Handle error
+    }
+  }
+
+  Future<void> removeUserFavorite(String userId, String songId) async {
+    final userFavRef = _firestore.collection('users').doc(userId).collection('favorites').doc(songId);
+    final songRef = _firestore.collection('songs').doc(songId);
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final doc = await transaction.get(userFavRef);
+        if (doc.exists) {
+          transaction.delete(userFavRef);
+          transaction.update(songRef, {
+            'likeCount': FieldValue.increment(-1),
+          });
+        }
+      });
+    } catch (e) {
+      // Handle error
     }
   }
 
