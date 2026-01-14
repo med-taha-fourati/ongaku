@@ -4,6 +4,8 @@ A music player
 
 # Preview
 <img width="180" height="400" alt="Screenshot_1766930338" src="https://github.com/user-attachments/assets/0732cbbd-5773-4023-a094-1c267b9d74ed" />
+<img width="180" height="400" alt="Screenshot_20260114_160458" src="https://github.com/user-attachments/assets/e53dc673-f12d-4b54-9deb-a710be16127a" />
+<img width="180" height="400" alt="Screenshot_1768161965" src="https://github.com/user-attachments/assets/bb8b5c0a-14ce-4068-ba3e-6de367ba0b17" />
 
 ## Getting Started
 
