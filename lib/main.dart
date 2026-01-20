@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -44,6 +45,15 @@ Future<void> _initializeAudioService() async {
   }
 }
 
+Future<void> _initializeDotenv() async {
+  try {
+    await dotenv.load(fileName: ".env");
+    debugPrint("Dotenv loaded successfully: ");
+  } catch (e) {
+    debugPrint("Dotenv didnt load successfully: $e");
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -51,6 +61,7 @@ Future<void> main() async {
   await ForegroundServiceManager.initialize();
   
   await Future.wait([
+    _initializeDotenv(),
     _initializeFirebase(),
     _initializeAudioService(),
   ]);
@@ -66,8 +77,7 @@ class MusicPlayerApp extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     // Keep active room session alive
     ref.watch(activeRoomSessionProvider); 
-    // Note: We need to import the provider first.
-
+    // Note: We need to import the provider first
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         // Optional: Fallback seed color (used if dynamic colors unavailable)

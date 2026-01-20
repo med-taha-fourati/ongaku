@@ -141,6 +141,7 @@ class SongRepository {
   }
 
   Future<String> uploadSong(File file, String userId) async {
+    print(_serverBaseUrl);
     try {
       if (!await file.exists()) {
         throw Exception('The selected audio file does not exist');
@@ -162,7 +163,8 @@ class SongRepository {
       
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
-      
+
+      print(_serverBaseUrl);
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(responseBody);
         if (jsonResponse['url'] == null) {
@@ -173,7 +175,8 @@ class SongRepository {
         throw Exception('Failed to upload song: ${response.reasonPhrase} (${response.statusCode})');
       }
     } catch (e) {
-      throw Exception('Failed to upload song: ${e.toString()}');
+      print(_serverBaseUrl);
+      throw Exception('Failed to upload song at $_serverBaseUrl: ${e.toString()}');
     }
   }
 
