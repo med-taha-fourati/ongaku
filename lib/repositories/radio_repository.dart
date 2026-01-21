@@ -5,7 +5,7 @@ import '../models/radio_station.dart';
 class RadioRepository {
   // if any of these fail, we're fucked
   static const List<String> _baseUrls = [
-    'https://de1.api.radio-browser.info/json'
+    'https://de1.api.radio-browser.info/json',
     'https://de2.api.radio-browser.info/json',
     'https://all.api.radio-browser.info/json',
   ];
@@ -49,6 +49,23 @@ class RadioRepository {
           .toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<RadioStation?> getStationByStreamUrl(String streamUrl) async {
+    if (streamUrl.trim().isEmpty) return null;
+    try {
+      final encoded = Uri.encodeComponent(streamUrl.trim());
+      final List<dynamic> data = await _fetchWithFallback('/stations/byurl/$encoded');
+      final stations = data
+          .map((json) => RadioStation.fromJson(json))
+          .where((s) => s.streamUrl.isNotEmpty)
+          .toList();
+      if (stations.isEmpty) return null;
+      final exact = stations.where((s) => s.streamUrl == streamUrl).toList();
+      return exact.isNotEmpty ? exact.first : stations.first;
+    } catch (e) {
+      return null;
     }
   }
 }

@@ -17,6 +17,7 @@ class UploadScreen extends ConsumerStatefulWidget {
 class _UploadScreenState extends ConsumerState<UploadScreen> {
   final _titleController = TextEditingController();
   final _artistController = TextEditingController();
+  final _albumController = TextEditingController();
   final _genreController = TextEditingController();
   File? _audioFile;
   File? _coverFile;
@@ -26,6 +27,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   void dispose() {
     _titleController.dispose();
     _artistController.dispose();
+    _albumController.dispose();
     _genreController.dispose();
     super.dispose();
   }
@@ -79,33 +81,44 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
 
       final title = _titleController.text.trim();
       final artist = _artistController.text.trim();
+      final album = _albumController.text.trim();
       final genre = _genreController.text.trim();
 
       if (title.isEmpty || artist.isEmpty || genre.isEmpty) {
         throw Exception('Please fill in all required fields');
       }
 
-      final audioUrl = await repository.uploadSong(_audioFile!, user.uid);
-      if (audioUrl.isEmpty) {
-        throw Exception('Failed to upload audio file');
-      }
+      final uploadResult = await repository.uploadSongWithMetadata(
+        audioFile: _audioFile!,
+        coverFile: _coverFile,
+        userId: user.uid,
+        title: title,
+        artist: artist,
+        album: album,
+        genre: genre,
+      );
 
-      String? coverUrl;
-      if (_coverFile != null) {
-        coverUrl = await repository.uploadCover(_coverFile!, user.uid);
-      }
+      final audioUrl = uploadResult['audioUrl'] as String? ?? '';
+      final coverUrl = uploadResult['coverUrl'] as String?;
+      final metadata = (uploadResult['metadata'] ?? {}) as Map<String, dynamic>;
+      final duration = (metadata['duration'] ?? 0) as int;
+      final finalTitle = (metadata['title'] ?? title) as String? ?? title;
+      final finalArtist = (metadata['artist'] ?? artist) as String? ?? artist;
+      final finalAlbum = (metadata['album'] ?? album) as String? ?? album;
+      final finalGenre = (metadata['genre'] ?? genre) as String? ?? genre;
 
       final song = SongModel(
         id: '',
-        title: title,
-        artist: artist,
-        genre: genre,
+        title: finalTitle,
+        artist: finalArtist,
+        genre: finalGenre,
         audioUrl: audioUrl,
         coverUrl: coverUrl,
         uploadedBy: user.uid,
         uploadedAt: DateTime.now(),
         status: user.isAdmin ? SongStatus.approved : SongStatus.pending,
-        duration: 0, 
+        duration: duration,
+        album: finalAlbum,
       );
 
       print('Creating song with data: ${song.toJson()}');
@@ -140,6 +153,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   void _resetForm() {
     _titleController.clear();
     _artistController.clear();
+    _albumController.clear();
     _genreController.clear();
     setState(() {
       _audioFile = null;
@@ -171,6 +185,14 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             controller: _artistController,
             decoration: const InputDecoration(
               labelText: 'Artist *',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _albumController,
+            decoration: const InputDecoration(
+              labelText: 'Album',
               border: OutlineInputBorder(),
             ),
           ),

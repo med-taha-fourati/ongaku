@@ -5,7 +5,7 @@ class UserModel {
   final bool isAdmin;
   final DateTime createdAt;
   final List<String> likedSongs;
-  final List<String> playHistory;
+  final List<String> likedRadios;
 
   UserModel({
     required this.uid,
@@ -14,7 +14,7 @@ class UserModel {
     this.isAdmin = false,
     required this.createdAt,
     this.likedSongs = const [],
-    this.playHistory = const [],
+    this.likedRadios = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -25,7 +25,7 @@ class UserModel {
       isAdmin: json['isAdmin'] ?? false,
       createdAt: DateTime.parse(json['createdAt']),
       likedSongs: List<String>.from(json['likedSongs'] ?? []),
-      playHistory: List<String>.from(json['playHistory'] ?? []),
+      likedRadios: List<String>.from(json['likedRadios'] ?? []),
     );
   }
 
@@ -37,7 +37,7 @@ class UserModel {
       'isAdmin': isAdmin,
       'createdAt': createdAt.toIso8601String(),
       'likedSongs': likedSongs,
-      'playHistory': playHistory,
+      'likedRadios': likedRadios,
     };
   }
 
@@ -45,7 +45,7 @@ class UserModel {
     String? displayName,
     bool? isAdmin,
     List<String>? likedSongs,
-    List<String>? playHistory,
+    List<String>? likedRadios,
   }) {
     return UserModel(
       uid: uid,
@@ -54,7 +54,7 @@ class UserModel {
       isAdmin: isAdmin ?? this.isAdmin,
       createdAt: createdAt,
       likedSongs: likedSongs ?? this.likedSongs,
-      playHistory: playHistory ?? this.playHistory,
+      likedRadios: likedRadios ?? this.likedRadios,
     );
   }
 }

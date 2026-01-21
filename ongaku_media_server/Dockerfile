@@ -9,6 +9,7 @@ COPY . .
 RUN dart compile exe bin/server.dart -o bin/server
 
 FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/bin/server /app/server
 

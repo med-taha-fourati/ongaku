@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/listening_session.dart';
 import '../models/song_model.dart';
+import '../models/radio_station.dart';
 import '../repositories/analytics_repository.dart';
 import '../repositories/song_repository.dart';
+import '../repositories/radio_repository.dart';
 import 'auth_provider.dart';
 
 // --- Data Models ---
@@ -35,10 +37,32 @@ class TopTrackData {
   TopTrackData({required this.song, required this.playCount});
 }
 
+class TopRadioData {
+  final RadioStation station;
+  final int playCount;
+
+  TopRadioData({required this.station, required this.playCount});
+}
+
+class SessionRatioData {
+  final int songSessions;
+  final int radioSessions;
+  final double songPercentage;
+  final double radioPercentage;
+
+  SessionRatioData({
+    required this.songSessions,
+    required this.radioSessions,
+    required this.songPercentage,
+    required this.radioPercentage,
+  });
+}
+
 // --- Repositories ---
 
 final analyticsRepositoryProvider = Provider((ref) => AnalyticsRepository());
 final songRepositoryProvider = Provider((ref) => SongRepository());
+final radioRepositoryProvider = Provider((ref) => RadioRepository());
 
 // --- Providers ---
 
@@ -102,40 +126,99 @@ final topTracksProvider = FutureProvider<List<TopTrackData>>((ref) async {
   final analyticsRepo = ref.read(analyticsRepositoryProvider);
   final sessions = await analyticsRepo.getRecentSessions(user.uid);
 
-  // Aggregate counts
   final playCounts = <String, int>{};
   for (final session in sessions) {
-    playCounts[session.songId] = (playCounts[session.songId] ?? 0) + 1;
+    if (session.songId != null && session.songId!.isNotEmpty) {
+      playCounts[session.songId!] = (playCounts[session.songId!] ?? 0) + 1;
+    }
   }
 
-  // Sort by count descending
   final sortedEntries = playCounts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
 
-  // Take top 20 for fetching details
   final topEntries = sortedEntries.take(20).toList();
 
   if (topEntries.isEmpty) return [];
 
-  // Fetch song details
-  // Note: This matches the implementation where SongRepository is available
-  // We assume SongRepository can fetch songs. If not, we might need a batch fetch.
-  // For MVP, fetching one by one or using a cached list if available.
-  // Assuming we don't have batch fetch, we'll try to find methods.
-  // Checking Task context: I saw SongRepository earlier.
-  
   final songRepo = ref.read(songRepositoryProvider);
   final songs = <TopTrackData>[];
 
   for (final entry in topEntries) {
     try {
-      // Optimally, fetchTrending or cache should be used, but getSong(id) was added in previous turns!
       final song = await songRepo.getSong(entry.key);
       songs.add(TopTrackData(song: song, playCount: entry.value));
     } catch (e) {
-      // Song might be deleted or unavailable
     }
   }
 
   return songs;
+});
+
+final topRadiosProvider = FutureProvider<List<TopRadioData>>((ref) async {
+  final user = ref.watch(currentUserProvider).value;
+  if (user == null) throw Exception('User not logged in');
+
+  final analyticsRepo = ref.read(analyticsRepositoryProvider);
+  final sessions = await analyticsRepo.getRecentSessions(user.uid);
+
+  final playCounts = <String, int>{};
+  for (final session in sessions) {
+    if (session.radioUrl != null && session.radioUrl!.isNotEmpty) {
+      playCounts[session.radioUrl!] = (playCounts[session.radioUrl!] ?? 0) + 1;
+    }
+  }
+
+  final sortedEntries = playCounts.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  final topEntries = sortedEntries.take(20).toList();
+
+  if (topEntries.isEmpty) return [];
+
+  final radioRepo = ref.read(radioRepositoryProvider);
+  final radios = <TopRadioData>[];
+  for (final entry in topEntries) {
+    final url = entry.key;
+    final station = await radioRepo.getStationByStreamUrl(url) ??
+        RadioStation(
+          id: url,
+          name: 'Unknown Station',
+          streamUrl: url,
+          genre: '',
+          country: '',
+        );
+    radios.add(TopRadioData(station: station, playCount: entry.value));
+  }
+
+  return radios;
+});
+
+final sessionRatioProvider = FutureProvider<SessionRatioData>((ref) async {
+  final user = ref.watch(currentUserProvider).value;
+  if (user == null) throw Exception('User not logged in');
+
+  final analyticsRepo = ref.read(analyticsRepositoryProvider);
+  final sessions = await analyticsRepo.getRecentSessions(user.uid);
+
+  int songSessions = 0;
+  int radioSessions = 0;
+
+  for (final session in sessions) {
+    if (session.songId != null && session.songId!.isNotEmpty) {
+      songSessions++;
+    } else if (session.radioUrl != null && session.radioUrl!.isNotEmpty) {
+      radioSessions++;
+    }
+  }
+
+  final total = songSessions + radioSessions;
+  final songPercentage = total > 0 ? (songSessions / total) * 100 : 0.0;
+  final radioPercentage = total > 0 ? (radioSessions / total) * 100 : 0.0;
+
+  return SessionRatioData(
+    songSessions: songSessions,
+    radioSessions: radioSessions,
+    songPercentage: songPercentage,
+    radioPercentage: radioPercentage,
+  );
 });

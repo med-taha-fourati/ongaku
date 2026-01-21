@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/statistics_provider.dart';
@@ -60,19 +61,43 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, UserModel user) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ProfileHeader(user: user),
-          const SizedBox(height: 32),
-          const _ListeningActivitySection(),
-          const SizedBox(height: 32),
-          const _MostPlayedCardSection(),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape = constraints.maxWidth > constraints.maxHeight;
+        final padding = isLandscape 
+          ? const EdgeInsets.fromLTRB(32, 24, 32, 100)
+          : const EdgeInsets.fromLTRB(24, 24, 24, 100);
+
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ProfileHeader(user: user),
+              const SizedBox(height: 32),
+              const _ListeningActivitySection(),
+              const SizedBox(height: 32),
+              const _SessionRatioChartSection(),
+              const SizedBox(height: 32),
+              if (isLandscape)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: const _MostPlayedCardSection()),
+                    const SizedBox(width: 16),
+                    Expanded(child: const _MostPlayedRadioCardSection()),
+                  ],
+                )
+              else ...[
+                const _MostPlayedCardSection(),
+                const SizedBox(height: 32),
+                const _MostPlayedRadioCardSection(),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -399,6 +424,284 @@ class _MostPlayedCardSection extends ConsumerWidget {
           },
           loading: () => const Card(child: Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))),
           error: (e, _) => const Card(child: Padding(padding: EdgeInsets.all(16), child: Center(child: Text('Error loading stats')))),
+        ),
+      ],
+    );
+  }
+}
+
+class _SessionRatioChartSection extends ConsumerWidget {
+  const _SessionRatioChartSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final ratioAsync = ref.watch(sessionRatioProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Listening Breakdown',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 48),
+        Container(
+          height: 220,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ratioAsync.when(
+            data: (data) {
+              if (data.songSessions + data.radioSessions == 0) {
+                return Center(
+                  child: Text(
+                    'No listening data yet',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                );
+              }
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final chartSize = (constraints.maxHeight - 60).clamp(100.0, 160.0);
+                  
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: SizedBox(
+                          width: chartSize,
+                          height: chartSize,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 4,
+                              centerSpaceRadius: chartSize * 0.3,
+                              sections: [
+                                PieChartSectionData(
+                                  value: data.songPercentage,
+                                  title: '${data.songPercentage.toStringAsFixed(0)}%',
+                                  color: theme.colorScheme.primary,
+                                  radius: chartSize * 0.4,
+                                  titleStyle: theme.textTheme.labelMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                PieChartSectionData(
+                                  value: data.radioPercentage,
+                                  title: '${data.radioPercentage.toStringAsFixed(0)}%',
+                                  color: theme.colorScheme.secondary,
+                                  radius: chartSize * 0.4,
+                                  titleStyle: theme.textTheme.labelMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _LegendItem(
+                            color: theme.colorScheme.primary,
+                            label: 'Songs',
+                            count: data.songSessions,
+                          ),
+                          const SizedBox(width: 24),
+                          _LegendItem(
+                            color: theme.colorScheme.secondary,
+                            label: 'Radio',
+                            count: data.radioSessions,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(
+              child: Text(
+                'Error loading data',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final int count;
+
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label ($count)',
+          style: theme.textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
+}
+
+class _MostPlayedRadioCardSection extends ConsumerWidget {
+  const _MostPlayedRadioCardSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final topRadiosAsync = ref.watch(topRadiosProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Most Played Radio',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        topRadiosAsync.when(
+          data: (radios) {
+            if (radios.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Center(
+                    child: Text(
+                      'No radio listening history yet',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+            final topRadio = radios.first;
+
+            return Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {},
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.radio,
+                            color: theme.colorScheme.onSecondaryContainer,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              topRadio.station.name,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${topRadio.station.country} • ${topRadio.station.genre}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${topRadio.playCount} plays',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.secondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (e, _) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  'Error loading stats',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

@@ -126,8 +126,7 @@ class _FavoriteRadiosList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final favoriteIds = ref.watch(favoritesProvider);
-    // Ideally we'd fetch specific stations, but for now filtering from known lists
+    final favoriteStreamUrls = ref.watch(radioFavoritesProvider);
     final topStationsAsync = ref.watch(topRadioStationsProvider);
     final recentlyPlayedRadios = ref.watch(recentlyPlayedRadiosProvider);
 
@@ -135,9 +134,9 @@ class _FavoriteRadiosList extends ConsumerWidget {
     topStationsAsync.whenData((stations) => availableRadios.addAll(stations));
 
     final uniqueRadios = <String, RadioStation>{};
-    for (var r in availableRadios) uniqueRadios[r.id] = r;
+    for (var r in availableRadios) uniqueRadios[r.streamUrl] = r;
 
-    final favoriteRadios = uniqueRadios.values.where((r) => favoriteIds.contains(r.id)).toList();
+    final favoriteRadios = uniqueRadios.values.where((r) => favoriteStreamUrls.contains(r.streamUrl)).toList();
 
     if (favoriteRadios.isEmpty) {
       return const Center(child: Text('No favorite radios found'));
@@ -162,7 +161,7 @@ class _FavoriteRadiosList extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.favorite, color: Colors.red),
                   onPressed: () {
-                    ref.read(favoritesProvider.notifier).toggleFavorite(station.id);
+                    ref.read(radioFavoritesProvider.notifier).toggleFavorite(station.streamUrl);
                   },
                 ),
                 const Icon(Icons.play_arrow),

@@ -9,12 +9,6 @@ import '../constants.dart';
 
 class SongRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  /*
-   * TODO:
-   *    - if you're hosting this from your own computer and you're emulating,
-   *    consider changing this to your computer's ip address
-   *
-   */
 
   static String get _serverBaseUrl => AppConstants.mediaServerUrl;
 
@@ -68,8 +62,6 @@ class SongRepository {
 
   Future<List<SongModel>> getRecommendedSongs() async {
     try {
-      // TODO: Implement more sophisticated recommendation logic
-      // For now, return a mix of trending and recent songs
       final trendingSnapshot = await _firestore
           .collection('songs')
           .where('status', isEqualTo: 'approved')
@@ -87,21 +79,18 @@ class SongRepository {
       final Set<String> seenIds = {};
       final List<SongModel> recommendations = [];
 
-      // Add trending songs
       for (var doc in trendingSnapshot.docs) {
         if (seenIds.add(doc.id)) {
           recommendations.add(SongModel.fromJson(doc.id, doc.data()));
         }
       }
 
-      // Add recent songs
       for (var doc in recentSnapshot.docs) {
         if (seenIds.add(doc.id)) {
           recommendations.add(SongModel.fromJson(doc.id, doc.data()));
         }
       }
 
-      // Shuffle the recommendations for variety
       recommendations.shuffle();
       return recommendations;
     } catch (e) {
@@ -140,83 +129,68 @@ class SongRepository {
     }
   }
 
-  Future<String> uploadSong(File file, String userId) async {
-    print(_serverBaseUrl);
+  Future<Map<String, dynamic>> uploadSongWithMetadata({
+    required File audioFile,
+    File? coverFile,
+    required String userId,
+    required String title,
+    required String artist,
+    String? album,
+    String? genre,
+  }) async {
     try {
-      if (!await file.exists()) {
+      if (!await audioFile.exists()) {
         throw Exception('The selected audio file does not exist');
       }
-      
-      final filePath = file.path;
+
+      final filePath = audioFile.path;
       if (filePath.isEmpty) {
         throw Exception('Invalid file path');
       }
-      
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}';
+
       final url = Uri.parse('$_serverBaseUrl/upload/song');
-      
-      var request = http.MultipartRequest('POST', url);
+      final request = http.MultipartRequest('POST', url);
       request.fields['userId'] = userId;
-      
-      final fileStream = await http.MultipartFile.fromPath('file', filePath, filename: fileName);
-      request.files.add(fileStream);
-      
+      request.fields['title'] = title;
+      request.fields['artist'] = artist;
+      request.fields['album'] = album ?? '';
+      request.fields['genre'] = genre ?? '';
+
+      final audioPart = await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        filename: '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}',
+      );
+      request.files.add(audioPart);
+
+      if (coverFile != null && await coverFile.exists()) {
+        final coverPart = await http.MultipartFile.fromPath(
+          'cover',
+          coverFile.path,
+          filename: '${DateTime.now().millisecondsSinceEpoch}_${path.basename(coverFile.path)}',
+        );
+        request.files.add(coverPart);
+      }
+
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
 
-      print(_serverBaseUrl);
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(responseBody);
-        if (jsonResponse['url'] == null) {
-          throw Exception('Invalid server response: missing URL');
-        }
-        return '$_serverBaseUrl${jsonResponse['url']}';
+        final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
+        final metadata = (jsonResponse['metadata'] ?? {}) as Map<String, dynamic>;
+        return {
+          'audioUrl': jsonResponse['url'] != null ? '$_serverBaseUrl${jsonResponse['url']}' : '',
+          'coverUrl': jsonResponse['coverUrl'] != null ? '$_serverBaseUrl${jsonResponse['coverUrl']}' : null,
+          'metadata': metadata,
+        };
       } else {
         throw Exception('Failed to upload song: ${response.reasonPhrase} (${response.statusCode})');
       }
     } catch (e) {
-      print(_serverBaseUrl);
       throw Exception('Failed to upload song at $_serverBaseUrl: ${e.toString()}');
     }
   }
-
-  Future<String?> uploadCover(File file, String userId) async {
-    try {
-      if (!await file.exists()) {
-        return null;
-      }
-      
-      final filePath = file.path;
-      if (filePath.isEmpty) {
-        return null;
-      }
-      
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}';
-      final url = Uri.parse('$_serverBaseUrl/upload/cover');
-      
-      var request = http.MultipartRequest('POST', url);
-      request.fields['userId'] = userId;
-      
-      final fileStream = await http.MultipartFile.fromPath('file', filePath, filename: fileName);
-      request.files.add(fileStream);
-      
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-      
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(responseBody);
-        if (jsonResponse['url'] == null) {
-          return null;
-        }
-        return '$_serverBaseUrl${jsonResponse['url']}';
-      } else {
-        return null;
-      }
-    } catch (e) {
-      return null;
-    }
-  }
-  
+ 
   Future<File> getSongFile(String url) async {
     try {
       final dir = await _localDir;
@@ -275,54 +249,78 @@ class SongRepository {
 
   Future<List<String>> fetchUserFavorites(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('favorites')
-          .get();
-      return snapshot.docs.map((doc) => doc.id).toList();
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        return List<String>.from(data['likedSongs'] ?? []);
+      }
+      return [];
     } catch (e) {
       return [];
     }
   }
 
+  Stream<List<String>> watchUserFavorites(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) {
+        return <String>[];
+      }
+      final data = snapshot.data()!;
+      return List<String>.from(data['likedSongs'] ?? []);
+    });
+  }
+
   Future<void> addUserFavorite(String userId, String songId) async {
-    final userFavRef = _firestore.collection('users').doc(userId).collection('favorites').doc(songId);
+    final userRef = _firestore.collection('users').doc(userId);
     final songRef = _firestore.collection('songs').doc(songId);
 
     try {
       await _firestore.runTransaction((transaction) async {
-        final doc = await transaction.get(userFavRef);
-        if (!doc.exists) {
-          transaction.set(userFavRef, {
-            'addedAt': FieldValue.serverTimestamp(),
-          });
-          transaction.update(songRef, {
-            'likeCount': FieldValue.increment(1),
-          });
+        final userDoc = await transaction.get(userRef);
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          final likedSongs = List<String>.from(data['likedSongs'] ?? []);
+          if (!likedSongs.contains(songId)) {
+            likedSongs.add(songId);
+            transaction.update(userRef, {
+              'likedSongs': likedSongs,
+            });
+            transaction.update(songRef, {
+              'likeCount': FieldValue.increment(1),
+            });
+          }
         }
       });
     } catch (e) {
-      // Handle error
     }
   }
 
   Future<void> removeUserFavorite(String userId, String songId) async {
-    final userFavRef = _firestore.collection('users').doc(userId).collection('favorites').doc(songId);
+    final userRef = _firestore.collection('users').doc(userId);
     final songRef = _firestore.collection('songs').doc(songId);
 
     try {
       await _firestore.runTransaction((transaction) async {
-        final doc = await transaction.get(userFavRef);
-        if (doc.exists) {
-          transaction.delete(userFavRef);
-          transaction.update(songRef, {
-            'likeCount': FieldValue.increment(-1),
-          });
+        final userDoc = await transaction.get(userRef);
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          final likedSongs = List<String>.from(data['likedSongs'] ?? []);
+          if (likedSongs.contains(songId)) {
+            likedSongs.remove(songId);
+            transaction.update(userRef, {
+              'likedSongs': likedSongs,
+            });
+            transaction.update(songRef, {
+              'likeCount': FieldValue.increment(-1),
+            });
+          }
         }
       });
     } catch (e) {
-      // Handle error
     }
   }
 
@@ -347,6 +345,62 @@ class SongRepository {
       await _firestore.collection('songs').doc(songId).delete();
     } catch (e) {
       throw Exception('Failed to delete song: $e');
+    }
+  }
+
+  Stream<List<String>> watchUserRadioFavorites(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) {
+        return <String>[];
+      }
+      final data = snapshot.data()!;
+      return List<String>.from(data['likedRadios'] ?? []);
+    });
+  }
+
+  Future<void> addUserRadioFavorite(String userId, String streamUrl) async {
+    final userRef = _firestore.collection('users').doc(userId);
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          final likedRadios = List<String>.from(data['likedRadios'] ?? []);
+          if (!likedRadios.contains(streamUrl)) {
+            likedRadios.add(streamUrl);
+            transaction.update(userRef, {
+              'likedRadios': likedRadios,
+            });
+          }
+        }
+      });
+    } catch (e) {
+    }
+  }
+
+  Future<void> removeUserRadioFavorite(String userId, String streamUrl) async {
+    final userRef = _firestore.collection('users').doc(userId);
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          final likedRadios = List<String>.from(data['likedRadios'] ?? []);
+          if (likedRadios.contains(streamUrl)) {
+            likedRadios.remove(streamUrl);
+            transaction.update(userRef, {
+              'likedRadios': likedRadios,
+            });
+          }
+        }
+      });
+    } catch (e) {
     }
   }
 }

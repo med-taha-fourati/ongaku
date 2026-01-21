@@ -174,7 +174,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   Future<void> playRadio(RadioStation station, {bool fromRecentlyPlayed = false}) async {
     try {
-      _logSession(completed: true);
+      _logSession(completed: false);
 
       await state.player.stop();
       
@@ -275,10 +275,25 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   void _logSession({bool completed = false, bool skipped = false}) {
-    if (state.currentSong != null && state.sessionStart != null) {
+    if (state.sessionStart == null) return;
+    
+    if (state.currentSong != null) {
       final session = ListeningSession(
         userId: userId,
         songId: state.currentSong!.id,
+        radioUrl: null,
+        startTime: state.sessionStart!,
+        endTime: DateTime.now(),
+        durationListened: state.position.inSeconds,
+        completed: completed,
+        skipped: skipped,
+      );
+      _analyticsRepository.logSession(session);
+    } else if (state.currentStation != null) {
+      final session = ListeningSession(
+        userId: userId,
+        songId: null,
+        radioUrl: state.currentStation!.streamUrl,
         startTime: state.sessionStart!,
         endTime: DateTime.now(),
         durationListened: state.position.inSeconds,

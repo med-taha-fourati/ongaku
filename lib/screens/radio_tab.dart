@@ -94,7 +94,7 @@ class _RadioTabState extends ConsumerState<RadioTab> {
       itemCount: stations.length,
       itemBuilder: (context, index) {
         final station = stations[index];
-        final isFavorite = ref.watch(favoritesProvider).contains(station.id);
+        final isFavorite = ref.watch(radioFavoritesProvider).contains(station.streamUrl);
         
         return ListTile(
           leading: CircleAvatar(
@@ -116,7 +116,7 @@ class _RadioTabState extends ConsumerState<RadioTab> {
                     icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
                     color: isFavorite ? Colors.red : null,
                     onPressed: () {
-                       ref.read(favoritesProvider.notifier).toggleFavorite(station.id);
+                       ref.read(radioFavoritesProvider.notifier).toggleFavorite(station.streamUrl);
                     },
                  ),
                  const Icon(Icons.play_arrow),

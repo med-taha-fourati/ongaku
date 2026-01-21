@@ -37,7 +37,6 @@ class AnalyticsRepository {
       final querySnapshot = await _firestore
           .collection('listening_sessions')
           .where('userId', isEqualTo: userId)
-          .where('completed', isEqualTo: true)
           .orderBy('startTime', descending: true)
           .limit(500) 
           .get();
@@ -60,7 +59,11 @@ class AnalyticsRepository {
           .limit(50)
           .get();
 
-      final songIds = sessions.docs.map((doc) => doc.data()['songId'] as String).toSet();
+      final songIds = sessions.docs
+          .map((doc) => doc.data()['songId'])
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet();
 
       final genres = <String>{};
       for (final songId in songIds) {

@@ -1,6 +1,7 @@
 class ListeningSession {
   final String userId;
-  final String songId;
+  final String? songId;
+  final String? radioUrl;
   final DateTime startTime;
   final DateTime? endTime;
   final int durationListened;
@@ -10,7 +11,8 @@ class ListeningSession {
 
   ListeningSession({
     required this.userId,
-    required this.songId,
+    this.songId,
+    this.radioUrl,
     required this.startTime,
     this.endTime,
     required this.durationListened,
@@ -19,11 +21,11 @@ class ListeningSession {
     this.skipped = false,
   });
 
-
   factory ListeningSession.fromJson(Map<String, dynamic> json) {
     return ListeningSession(
       userId: json['userId'] as String,
-      songId: json['songId'] as String,
+      songId: json['songId'] as String?,
+      radioUrl: json['radioUrl'] as String?,
       startTime: DateTime.parse(json['startTime'] as String),
       endTime: json['endTime'] != null ? DateTime.parse(json['endTime'] as String) : null,
       durationListened: json['durationListened'] as int,
@@ -37,6 +39,7 @@ class ListeningSession {
     return {
       'userId': userId,
       'songId': songId,
+      'radioUrl': radioUrl,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime?.toIso8601String(),
       'durationListened': durationListened,
