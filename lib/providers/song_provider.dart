@@ -23,3 +23,9 @@ final trendingSongsProvider = FutureProvider<List<SongModel>>((ref) async {
   final repository = ref.watch(songRepositoryProvider);
   return await repository.getTrendingSongs();
 });
+
+final userSongsProvider =
+    FutureProvider.family<List<SongModel>, String>((ref, userId) async {
+  final repository = ref.watch(songRepositoryProvider);
+  return await repository.getSongsByUserId(userId);
+});

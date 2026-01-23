@@ -228,6 +228,29 @@ class SongRepository {
     }
   }
 
+  Future<void> updateSong(String songId, Map<String, dynamic> data) async {
+    try {
+      await _firestore.collection('songs').doc(songId).update(data);
+    } catch (e) {
+      throw Exception('Failed to update song: $e');
+    }
+  }
+
+  Future<void> deleteSongMedia(String audioUrl) async {
+    if (audioUrl.isEmpty) {
+      return;
+    }
+    try {
+      final uri = Uri.parse(audioUrl);
+      final response = await http.delete(uri, headers: _headers);
+      if (response.statusCode >= 400 && response.statusCode != 404) {
+        throw Exception('Failed to delete song file: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete song file at $_serverBaseUrl: ${e.toString()}');
+    }
+  }
+
   Future<void> updateSongStatus(String songId, SongStatus status) async {
     try {
       await _firestore.collection('songs').doc(songId).update({
@@ -321,6 +344,25 @@ class SongRepository {
         }
       });
     } catch (e) {
+      print("Unable to remove favorite: $e");
+    }
+  }
+
+  Future<List<SongModel>> getSongsByUserId(String userId) async {
+    try {
+      final query = await _firestore
+          .collection('songs')
+          .where('uploadedBy', isEqualTo: userId)
+          .get();
+
+      var result = query.docs;
+      List<SongModel> songs =
+          result.map((doc) => SongModel.fromJson(doc.id, doc.data())).toList();
+      return songs;
+
+    } catch (e) {
+      print("Unable to fetch Songs by User ID: $e");
+      return [];
     }
   }
 

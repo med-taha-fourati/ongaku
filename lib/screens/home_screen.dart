@@ -6,7 +6,7 @@ import 'songs_tab.dart';
 import 'radio_tab.dart';
 import 'upload_screen.dart';
 import 'rooms_tab.dart';
-import 'rooms_tab.dart';
+import 'song_manager_screen.dart';
 import 'favorites_screen.dart';
 
 
@@ -30,11 +30,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isConnected = ref.watch(connectivityProvider).value ?? true;
     final playerState = ref.watch(playerProvider);
 
+
+    final userValue = currentUser.value;
+    if (userValue == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     final tabs = [
       const SongsTab(),
       const RadioTab(),
       const RoomsTab(),
-      const UploadScreen(),
+      SongManagementScreen(userId: userValue.uid),
       const FavoritesScreen(),
       const ProfileScreen(), // Add Profile Tab
     ];
