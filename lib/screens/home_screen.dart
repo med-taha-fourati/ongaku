@@ -89,8 +89,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: 'Rooms',
               ),
               NavigationDestination(
-                icon: Icon(Icons.upload),
-                label: 'Upload',
+                icon: Icon(Icons.menu),
+                label: 'Manage',
               ),
               NavigationDestination(
                 icon: Icon(Icons.star),
