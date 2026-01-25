@@ -81,18 +81,18 @@ class ProfileScreen extends ConsumerWidget {
               const _SessionRatioChartSection(),
               const SizedBox(height: 32),
               if (isLandscape)
-                Row(
+                const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: const _MostPlayedCardSection()),
-                    const SizedBox(width: 16),
-                    Expanded(child: const _MostPlayedRadioCardSection()),
+                    Expanded(child: _MostPlayedCardSection()),
+                    SizedBox(width: 16),
+                    //Expanded(child: _MostPlayedRadioCardSection()),
                   ],
                 )
               else ...[
                 const _MostPlayedCardSection(),
                 const SizedBox(height: 32),
-                const _MostPlayedRadioCardSection(),
+                //const _MostPlayedRadioCardSection(),
               ],
             ],
           ),

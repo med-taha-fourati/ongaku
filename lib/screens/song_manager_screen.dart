@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,9 +23,12 @@ class SongManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _SongManagementScreenState extends ConsumerState<SongManagementScreen> {
+  final TextEditingController _searchController = TextEditingController();
   _SongSortField _sortField = _SongSortField.likes;
   bool _ascending = false;
   String? _processingSongId;
+  Timer? _debounce;
+  String _searchQuery = '';
 
   List<SongModel> _sortedSongs(List<SongModel> songs) {
     final list = List<SongModel>.from(songs);
@@ -40,6 +45,25 @@ class _SongManagementScreenState extends ConsumerState<SongManagementScreen> {
       return _ascending ? compare : -compare;
     });
     return list;
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = query.toLowerCase();
+        });
+      }
+    });
+  }
+
+  List<SongModel> _filterSongs(List<SongModel> songs) {
+    if (_searchQuery.isEmpty) return songs;
+    return songs.where((song) {
+      return song.title.toLowerCase().contains(_searchQuery) ||
+          song.artist.toLowerCase().contains(_searchQuery);
+    }).toList();
   }
 
   Future<void> _openCreateSongSheet() async {
@@ -356,7 +380,7 @@ class _SongManagementScreenState extends ConsumerState<SongManagementScreen> {
               );
             }
 
-            final sorted = _sortedSongs(songs);
+            final sorted = _filterSongs(_sortedSongs(songs));
 
             return LayoutBuilder(
               builder: (context, constraints) {
@@ -371,6 +395,29 @@ class _SongManagementScreenState extends ConsumerState<SongManagementScreen> {
                 if (!isWide) {
                   return Column(
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child:TextField(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        decoration: InputDecoration(
+                          hintText: 'Search songs...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _onSearchChanged('');
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      ),
                       _buildSortControls(),
                       Expanded(
                         child: ListView.builder(

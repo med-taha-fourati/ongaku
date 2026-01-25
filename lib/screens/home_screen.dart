@@ -29,8 +29,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final currentUser = ref.watch(currentUserProvider);
     final isConnected = ref.watch(connectivityProvider).value ?? true;
     final playerState = ref.watch(playerProvider);
-
-
+    // ===================================
+    // potentically yielding null values
+    // showing a loading indicator is not a good idea, in fact its ass
+    // ===================================
     final userValue = currentUser.value;
     if (userValue == null) {
       return const Scaffold(
@@ -43,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SongsTab(),
       const RadioTab(),
       const RoomsTab(),
-      SongManagementScreen(userId: userValue.uid),
+      SongManagementScreen(userId: userValue.uid), // why the fcuk am i passing userId here, it should be gotten from provider or smth
       const FavoritesScreen(),
       const ProfileScreen(), // Add Profile Tab
     ];
