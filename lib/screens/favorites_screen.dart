@@ -7,6 +7,7 @@ import '../providers/radio_provider.dart';
 import '../models/song_model.dart';
 import '../models/radio_station.dart';
 import '../widgets/full_player_screen.dart';
+import '../providers/active_room_provider.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -95,23 +96,34 @@ class _FavoriteSongsList extends ConsumerWidget {
                         ref.read(favoritesProvider.notifier).toggleFavorite(song.id);
                       },
                     ),
-                    const Icon(Icons.play_arrow),
+                    IconButton(
+                      icon: const Icon(Icons.play_arrow),
+                      onPressed: ref.watch(activeRoomIdProvider) != null
+                          ? () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Cannot play music while in a voice room'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                          : () {
+                        ref.read(playerProvider.notifier).playSong(song, favoriteSongs);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => FullPlayerScreen(
+                              song: song,
+                              heroTag: 'fav-song-${song.id}',
+                              playbackSource: PlaybackSource.song,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
-              ),
-              onTap: () {
-                ref.read(playerProvider.notifier).playSong(song, favoriteSongs);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => FullPlayerScreen(
-                      song: song,
-                      heroTag: 'fav-song-${song.id}',
-                      playbackSource: PlaybackSource.song,
-                    ),
-                  ),
-                );
-              },
-            );
+                ),
+              );
           },
         );
       },
@@ -168,18 +180,28 @@ class _FavoriteRadiosList extends ConsumerWidget {
               ],
             ),
           ),
-          onTap: () {
-            ref.read(playerProvider.notifier).playRadio(station);
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => FullPlayerScreen(
-                  station: station,
-                  heroTag: 'fav-radio-${station.id}',
-                  playbackSource: PlaybackSource.radio,
-                ),
-              ),
-            );
-          },
+          enabled: ref.watch(activeRoomIdProvider) == null,
+          onTap: ref.watch(activeRoomIdProvider) != null
+              ? () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Cannot play music while in a voice room'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              : () {
+                  ref.read(playerProvider.notifier).playRadio(station);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FullPlayerScreen(
+                        station: station,
+                        heroTag: 'fav-radio-${station.id}',
+                        playbackSource: PlaybackSource.radio,
+                      ),
+                    ),
+                  );
+                },
         );
       },
     );

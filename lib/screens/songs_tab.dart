@@ -5,6 +5,7 @@ import '../providers/song_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/radio_provider.dart';
+import '../providers/active_room_provider.dart';
 import '../models/song_model.dart';
 import '../widgets/full_player_screen.dart';
 import 'recommendations_screen.dart';
@@ -102,6 +103,8 @@ class _AllSongsList extends ConsumerWidget {
     final songsAsync = ref.watch(approvedSongsProvider);
     final trendingAsync = ref.watch(trendingSongsProvider);
     final recentlyPlayedRadios = ref.watch(recentlyPlayedRadiosProvider);
+    final activeRoomId = ref.watch(activeRoomIdProvider);
+    final isInRoom = activeRoomId != null;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -189,22 +192,34 @@ class _AllSongsList extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       final radio = recentlyPlayedRadios[index];
                       return GestureDetector(
-                        onTap: () {
-                          ref.read(playerProvider.notifier).playRadio(
-                                radio,
-                                fromRecentlyPlayed: true,
-                              );
-                           // Open player
-                           Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => FullPlayerScreen(
-                                  station: radio,
-                                  heroTag: 'radio-${radio.id}',
-                                ),
-                              ),
-                            );
-                        },
-                        child: Container(
+                        onTap: isInRoom
+                            ? () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Cannot play music while in a voice room'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            : () {
+                                ref.read(playerProvider.notifier).playRadio(
+                                      radio,
+                                      fromRecentlyPlayed: true,
+                                    );
+                                // Open player
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => FullPlayerScreen(
+                                      station: radio,
+                                      heroTag: 'radio-${radio.id}',
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: Opacity(
+                          opacity: isInRoom ? 0.5 : 1.0,
+                          child: Container(
                           width: 120,
                           margin: const EdgeInsets.only(right: 12),
                           child: Column(
@@ -237,6 +252,7 @@ class _AllSongsList extends ConsumerWidget {
                               ),
                             ],
                           ),
+                        ),
                         ),
                       );
                     },
@@ -296,6 +312,8 @@ class _SongListItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesProvider).contains(song.id);
+    final activeRoomId = ref.watch(activeRoomIdProvider);
+    final isInRoom = activeRoomId != null;
 
     return ListTile(
       leading: Container(
@@ -320,17 +338,27 @@ class _SongListItem extends ConsumerWidget {
           ref.read(favoritesProvider.notifier).toggleFavorite(song.id);
         },
       ),
-      onTap: () {
-        ref.read(playerProvider.notifier).playSong(song, playlist);
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => FullPlayerScreen(
-              song: song,
-              heroTag: 'song-${song.id}',
-            ),
-          ),
-        );
-      },
+      enabled: !isInRoom,
+      onTap: isInRoom
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot play music while in a voice room'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          : () {
+              ref.read(playerProvider.notifier).playSong(song, playlist);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FullPlayerScreen(
+                    song: song,
+                    heroTag: 'song-${song.id}',
+                  ),
+                ),
+              );
+            },
     );
   }
 }
@@ -343,8 +371,20 @@ class _TrendingSongCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final activeRoomId = ref.watch(activeRoomIdProvider);
+    final isInRoom = activeRoomId != null;
+
     return GestureDetector(
-      onTap: () {
+      onTap: isInRoom
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot play music while in a voice room'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          : () {
         ref.read(playerProvider.notifier).playSong(song, allSongs);
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -355,9 +395,11 @@ class _TrendingSongCard extends ConsumerWidget {
           ),
         );
       },
-      child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 12),
+      child: Opacity(
+        opacity: isInRoom ? 0.5 : 1.0,
+        child: Container(
+          width: 160,
+          margin: const EdgeInsets.only(right: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -399,6 +441,7 @@ class _TrendingSongCard extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+        ),
         ),
       ),
     );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/song_model.dart';
+import '../providers/active_room_provider.dart';
 
-class SongTile extends StatelessWidget {
+class SongTile extends ConsumerWidget {
   final SongModel song;
   final VoidCallback onTap;
   final Widget? trailing;
@@ -14,9 +16,22 @@ class SongTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeRoomId = ref.watch(activeRoomIdProvider);
+    final isInRoom = activeRoomId != null;
+
     return ListTile(
-      onTap: onTap,
+      enabled: !isInRoom,
+      onTap: isInRoom
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot play music while in a voice room'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          : onTap,
       leading: Container(
         width: 48,
         height: 48,

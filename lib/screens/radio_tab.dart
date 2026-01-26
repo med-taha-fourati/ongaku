@@ -6,6 +6,7 @@ import '../widgets/full_player_screen.dart';
 import '../providers/player_provider.dart';
 import '../repositories/radio_repository.dart';
 import '../models/radio_station.dart';
+import '../providers/active_room_provider.dart';
 
 class RadioTab extends ConsumerStatefulWidget {
   const RadioTab({super.key});
@@ -123,27 +124,36 @@ class _RadioTabState extends ConsumerState<RadioTab> {
                ],
              ),
           ),
-          onTap: () async {
-            try {
-              ref.read(playerProvider.notifier).playRadio(station);
-               Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => FullPlayerScreen(
-                        station: station,
-                        heroTag: 'radio-${station.id}',
-                        playbackSource: PlaybackSource.radio,
-                      ),
+          enabled: ref.watch(activeRoomIdProvider) == null,
+          onTap: ref.watch(activeRoomIdProvider) != null
+              ? () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Cannot play music while in a voice room'),
+                      duration: Duration(seconds: 2),
                     ),
-               );
-
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to play radio station')),
-                );
-              }
-            }
-          },
+                  );
+                }
+              : () async {
+                  try {
+                    ref.read(playerProvider.notifier).playRadio(station);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => FullPlayerScreen(
+                          station: station,
+                          heroTag: 'radio-${station.id}',
+                          playbackSource: PlaybackSource.radio,
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to play radio station')),
+                      );
+                    }
+                  }
+                },
         );
       },
     );

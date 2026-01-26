@@ -359,6 +359,7 @@ class RoomPlayerNotifier extends StateNotifier<RoomPlayerState> {
            playbackState: PlaybackState.stopped,
            activeSongId: null,
          );
+         state = state.copyWith(currentSong: null);
          return;
       }
 
