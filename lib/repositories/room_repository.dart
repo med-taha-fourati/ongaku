@@ -333,14 +333,17 @@ class RoomRepository {
         requestedAt: DateTime.now(),
       );
 
-      await _firestore
+      final docRef = await _firestore
           .collection('rooms')
           .doc(roomId)
           .collection('queue')
           .doc('requests')
           .collection('items')
           .add(request.toJson());
+      
+      print('Song request created successfully: ${docRef.id}');
     } catch (e) {
+      print('Failed to create song request: $e');
       throw Exception('Failed to request song: $e');
     }
   }

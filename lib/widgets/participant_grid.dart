@@ -16,21 +16,33 @@ class ParticipantGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GridView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: participants.length,
-      itemBuilder: (context, index) {
-        final participant = participants[index];
-        return _ParticipantTile(
-          participant: participant,
-          isCurrentUser: participant.uid == currentUserId,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 900
+            ? 4
+            : width >= 600
+                ? 3
+                : 2;
+        final childAspectRatio = width >= 600 ? 0.85 : 0.80;
+
+        return GridView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: childAspectRatio,
+          ),
+          itemCount: participants.length,
+          itemBuilder: (context, index) {
+            final participant = participants[index];
+            return _ParticipantTile(
+              participant: participant,
+              isCurrentUser: participant.uid == currentUserId,
+            );
+          },
         );
       },
     );
@@ -52,6 +64,7 @@ class _ParticipantTile extends StatelessWidget {
     final isConnected = participant.isConnected;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
           alignment: Alignment.center,
@@ -163,15 +176,17 @@ class _ParticipantTile extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          isCurrentUser ? '${participant.displayName} (You)' : participant.displayName,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
-            color: isConnected ? null : theme.colorScheme.onSurface.withOpacity(0.5),
+        Flexible(
+          child: Text(
+            isCurrentUser ? '${participant.displayName} (You)' : participant.displayName,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+              color: isConnected ? null : theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
         ),
       ],
     );

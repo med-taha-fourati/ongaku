@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/queued_song_model.dart';
 import '../models/song_model.dart';
 import '../providers/room_provider.dart';
+import '../providers/auth_provider.dart';
 import '../repositories/song_repository.dart';
 import '../repositories/room_repository.dart';
 
@@ -68,35 +69,51 @@ class _QueuePanelState extends ConsumerState<QueuePanel> with SingleTickerProvid
     }
   }
 
-  void _requestSong(SongModel song) {
-    if (widget.isHost) {
-      ref.read(roomRepositoryProvider).addSongToQueue(
-        roomId: widget.roomId,
-        songId: song.id,
-        title: song.title,
-        artist: song.artist,
-        durationMs: 0, // Should be actual duration
-        addedBy: 'Host', // Should get current user name
-      );
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Song added to queue')),
-      );
-    } else {
-      ref.read(roomRepositoryProvider).requestSong(
-        roomId: widget.roomId,
-        songId: song.id,
-        title: song.title,
-        artist: song.artist,
-        durationMs: 0, // Should be actual duration
-        requestedBy: 'User', // Should get current user name
-      );
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Song requested')),
-      );
+  Future<void> _requestSong(SongModel song) async {
+    try {
+      if (widget.isHost) {
+        await ref.read(roomRepositoryProvider).addSongToQueue(
+          roomId: widget.roomId,
+          songId: song.id,
+          title: song.title,
+          artist: song.artist,
+          durationMs: song.duration,
+          addedBy: ref.read(authStateProvider).value?.displayName ?? 'Host',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Song added to queue')),
+          );
+        }
+      } else {
+        final currentUser = ref.read(authStateProvider).value;
+        await ref.read(roomRepositoryProvider).requestSong(
+          roomId: widget.roomId,
+          songId: song.id,
+          title: song.title,
+          artist: song.artist,
+          durationMs: song.duration,
+          requestedBy: currentUser?.displayName ?? currentUser?.email ?? 'User',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Song requested! Waiting for host approval.')),
+          );
+        }
+      }
+      
+      _searchController.clear();
+      setState(() => _searchResults = []);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to request song: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    
-    _searchController.clear();
-    setState(() => _searchResults = []);
   }
 
   @override
@@ -252,8 +269,16 @@ class _QueuePanelState extends ConsumerState<QueuePanel> with SingleTickerProvid
           itemBuilder: (context, index) {
             final request = requests[index];
             return ListTile(
-              title: Text(request.title),
-              subtitle: Text('${request.artist} • Requested by ${request.requestedBy}'),
+              title: Text(
+                request.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                '${request.artist} • Requested by ${request.requestedBy}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               trailing: widget.isHost
                   ? Row(
                       mainAxisSize: MainAxisSize.min,

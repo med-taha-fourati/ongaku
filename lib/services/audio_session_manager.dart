@@ -13,17 +13,17 @@ class AudioSessionManager {
     try {
       final session = await AudioSession.instance;
       await session.configure(AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
         avAudioSessionCategoryOptions:
-            AVAudioSessionCategoryOptions.defaultToSpeaker |
+            AVAudioSessionCategoryOptions.duckOthers |
                 AVAudioSessionCategoryOptions.allowBluetooth,
-        avAudioSessionMode: AVAudioSessionMode.voiceChat,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
         avAudioSessionRouteSharingPolicy:
             AVAudioSessionRouteSharingPolicy.defaultPolicy,
         avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
         androidAudioAttributes: const AndroidAudioAttributes(
           contentType: AndroidAudioContentType.music,
-          usage: AndroidAudioUsage.voiceCommunication,
+          usage: AndroidAudioUsage.media,
         ),
         androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
         androidWillPauseWhenDucked: false,
@@ -31,9 +31,9 @@ class AudioSessionManager {
 
       _initialized = true;
       debugPrint('AudioSessionManager: Initialized successfully');
-      debugPrint('  Category: playAndRecord');
-      debugPrint('  Mode: voiceChat');
-      debugPrint('  Android usage: voiceCommunication');
+      debugPrint('  Category: playback (music through loudspeaker)');
+      debugPrint('  Mode: default');
+      debugPrint('  Android usage: media');
       debugPrint('  Will pause when ducked: false');
     } catch (e) {
       debugPrint('AudioSessionManager: Initialization failed: $e');
